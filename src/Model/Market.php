@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $label
  * @property string|null $line
  * @property bool        $feed
+ * @property string|null $odds_provider
  * @property string      $status
  * @property int         $sort
  * @property Carbon|null $settled_at

@@ -20,8 +20,45 @@ use Illuminate\Database\Query\Builder;
  */
 class PicksBridge
 {
-    public function __construct(private ConnectionInterface $db, private Config $config, private Container $container)
+    /** Picks' league keys, as Longshot's. */
+    public const LEAGUES = ['cfb' => 'ncaaf', 'nfl' => 'nfl', 'nba' => 'nba', 'cbb' => 'ncaab', 'mlb' => 'mlb', 'nhl' => 'nhl', 'mls' => 'mls', 'epl' => 'epl', 'ucl' => 'ucl'];
+
+    /** @var list<string>|null */
+    private ?array $covered = null;
+
+    public function __construct(
+        private ConnectionInterface $db,
+        private Config $config,
+        private Container $container,
+        private \ErnestDefoe\Longshot\Feed\Teams $teams,
+        private \ErnestDefoe\Longshot\Feed\Logos $logos,
+        private \Flarum\Http\UrlGenerator $url,
+    ) {
+    }
+
+    /**
+     * Longshot's keys for the leagues Picks is playing now (a season with a
+     * game in the last month or ahead). Their fixtures and scores are Picks'.
+     *
+     * @return list<string>
+     */
+    public function leagues(): array
     {
+        if ($this->covered !== null) {
+            return $this->covered;
+        }
+
+        if (! $this->available() || ! $this->config->picksImport()) {
+            return $this->covered = [];
+        }
+
+        $keys = $this->db->table('picks_seasons')
+            ->join('picks_weeks', 'picks_weeks.season_id', '=', 'picks_seasons.id')
+            ->join('picks_events', 'picks_events.week_id', '=', 'picks_weeks.id')
+            ->where('picks_events.match_date', '>', Carbon::now()->subMonth())
+            ->distinct()->pluck('picks_seasons.league')->all();
+
+        return $this->covered = array_values(array_unique(array_filter(array_map(fn ($k) => self::LEAGUES[$k] ?? null, $keys))));
     }
 
     public function available(): bool
@@ -100,23 +137,34 @@ class PicksBridge
                     }
 
                     $league = $registry->get($row->league);
-                    $added += (int) $this->create((int) $row->id, $league->name, $league->sport === 'soccer', $home, $away, Carbon::parse($row->match_date));
+                    $key = self::LEAGUES[$league->key] ?? $league->key;
+                    $added += (int) $this->create((int) $row->id, $league->name, $key, $league->sport === 'soccer', $home, $away, Carbon::parse($row->match_date));
                 }
             });
 
         return $added;
     }
 
-    private function create(int $picksId, string $league, bool $draw, \Resofire\Picks\Team $home, \Resofire\Picks\Team $away, Carbon $starts): bool
+    private function create(int $picksId, string $league, string $key, bool $draw, \Resofire\Picks\Team $home, \Resofire\Picks\Team $away, Carbon $starts): bool
     {
-        return $this->db->transaction(function () use ($picksId, $league, $draw, $home, $away, $starts) {
+        // The book's own teams, so Picks' games share logos, colours and the
+        // duplicate check with every other source.
+        $homeTeam = $this->teams->resolve($key, new \ErnestDefoe\Longshot\Feed\Side($home->name, $home->abbreviation, logo: $home->logo_url), 'picks');
+        $awayTeam = $this->teams->resolve($key, new \ErnestDefoe\Longshot\Feed\Side($away->name, $away->abbreviation, logo: $away->logo_url), 'picks');
+
+        return $this->db->transaction(function () use ($picksId, $league, $key, $draw, $homeTeam, $awayTeam, $home, $away, $starts) {
             // Two imports at once: the unique picks_event_id lets one through.
             $id = $this->db->table('longshot_events')->insertOrIgnore([
                 'league' => mb_substr($league, 0, 60),
-                'home_name' => mb_substr($home->name, 0, 100),
-                'away_name' => mb_substr($away->name, 0, 100),
-                'home_logo' => $this->logo($home->logo_url),
-                'away_logo' => $this->logo($away->logo_url),
+                'league_key' => $key,
+                'source' => 'picks',
+                'external_id' => (string) $picksId,
+                'home_team_id' => $homeTeam->id,
+                'away_team_id' => $awayTeam->id,
+                'home_name' => mb_substr($homeTeam->name, 0, 100),
+                'away_name' => mb_substr($awayTeam->name, 0, 100),
+                'home_logo' => $this->logo($homeTeam, $home->logo_url),
+                'away_logo' => $this->logo($awayTeam, $away->logo_url),
                 'starts_at' => $starts,
                 'status' => Event::OPEN,
                 'picks_event_id' => $picksId,
@@ -157,10 +205,20 @@ class PicksBridge
         });
     }
 
-    /** Only web addresses are kept; a team with an uploaded crest has a full URL from Picks. */
-    private function logo(?string $url): ?string
+    /**
+     * The cached copy of a team's logo; or Picks' own file when Picks serves
+     * it from this forum (an uploaded crest). Never a third-party URL: those
+     * are cached first (Logos::cacheTeams) and the event pointed at the copy.
+     */
+    private function logo(\ErnestDefoe\Longshot\Model\Team $team, ?string $url): ?string
     {
-        return $url && preg_match('#^https?://#i', $url) && strlen($url) <= 255 ? $url : null;
+        if ($team->logo_path) {
+            return $this->logos->url($team->logo_path);
+        }
+
+        $base = rtrim($this->url->to('forum')->base(), '/').'/';
+
+        return $url && str_starts_with($url, $base) && strlen($url) <= 255 ? $url : null;
     }
 
     /**

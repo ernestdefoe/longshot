@@ -18,6 +18,8 @@ return Migration::createTable('longshot_markets', function (Blueprint $table) {
     $table->string('label', 150)->nullable();
     $table->decimal('line', 7, 1)->nullable();
     $table->boolean('feed')->default(false);
+    // Who priced it, as a member reads it: "DraftKings (via ESPN)".
+    $table->string('odds_provider', 60)->nullable();
     $table->string('status', 16)->default('open');
     $table->unsignedSmallInteger('sort')->default(0);
     $table->dateTime('settled_at')->nullable();

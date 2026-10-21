@@ -106,8 +106,12 @@ class PicksTest extends TestCase
         $this->assertSame(10, $event->picks_event_id);
         $this->assertSame('NFL', $event->league);
         $this->assertSame('Pittsburgh Steelers', $event->home_name);
-        $this->assertSame('https://a.espncdn.com/i/teamlogos/nfl/500/pit.png', $event->home_logo);
-        $this->assertNull($event->away_logo, 'only web addresses are kept as logos');
+        // Never hotlinked: an ESPN crest is queued for the local cache, a
+        // javascript: "logo" is not kept at all.
+        $this->assertNull($event->home_logo);
+        $this->assertSame('https://a.espncdn.com/i/teamlogos/nfl/500/pit.png', \ErnestDefoe\Longshot\Model\Team::query()->find($event->home_team_id)->logo_source);
+        $this->assertNull(\ErnestDefoe\Longshot\Model\Team::query()->find($event->away_team_id)->logo_source);
+        $this->assertSame(['nfl'], $this->app()->getContainer()->make(PicksBridge::class)->leagues());
         $this->assertSame([Market::MONEYLINE, Market::SPREAD, Market::TOTAL], $event->markets->pluck('type')->all());
         $this->assertSame([['away', 'home'], ['away', 'home'], ['over', 'under']], $event->markets->map(fn ($m) => $m->selections->pluck('key')->all())->all());
         $this->assertTrue($event->markets->every(fn ($m) => $m->feed && $m->selections->every(fn ($s) => $s->odds === null)));

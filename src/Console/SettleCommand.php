@@ -12,7 +12,7 @@ use Flarum\Console\AbstractCommand;
  */
 class SettleCommand extends AbstractCommand
 {
-    public function __construct(private Settlement $settlement)
+    public function __construct(private Settlement $settlement, private \ErnestDefoe\Longshot\Feed\Sync $sync)
     {
         parent::__construct();
     }
@@ -24,7 +24,10 @@ class SettleCommand extends AbstractCommand
 
     protected function fire(): int
     {
+        // Results for followed leagues' games due one (each league at most every 5 minutes).
+        $fromFeeds = $this->sync->results();
         $done = $this->settlement->sweep();
+        $done['scored'] += $fromFeeds;
 
         $this->info(sprintf('Scored %d, closed %d offers, voided %d, recovered %d.', $done['scored'], $done['closed'], $done['voided'], $done['recovered']));
 

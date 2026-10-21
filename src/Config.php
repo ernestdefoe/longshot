@@ -123,6 +123,12 @@ class Config
         return array_values(array_filter(array_map('trim', explode(',', (string) $this->get('picks_leagues')))));
     }
 
+    /** @return list<string> Longshot league keys the forum follows through the data providers. */
+    public function followedLeagues(): array
+    {
+        return array_values(array_unique(array_filter(array_map('trim', explode(',', (string) $this->get('leagues'))))));
+    }
+
     public function picksImport(): bool
     {
         return (bool) ($this->get('picks_import') ?? true);
@@ -149,7 +155,7 @@ class Config
      * For the settings page: which integrations can be switched on, and the
      * leagues Picks knows (key => name), for the import filter.
      *
-     * @return array{points: bool, picks: bool, leagues: array<string, string>}
+     * @return array{points: bool, picks: bool, leagues: array<string, string>, feedLeagues: array<string, string>}
      */
     public function adminFacts(): array
     {
@@ -159,6 +165,7 @@ class Config
             'points' => $this->pointsAvailable(),
             'picks' => $picks,
             'leagues' => $picks ? resolve(\Resofire\Picks\Service\Leagues\Leagues::class)->choices() : [],
+            'feedLeagues' => resolve(Feed\Leagues::class)->choices(),
         ];
     }
 }

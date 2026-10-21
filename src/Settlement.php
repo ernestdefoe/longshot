@@ -514,9 +514,10 @@ class Settlement
             });
         }
 
-        // Games Picks never finished: voided after the configured wait.
+        // Games no feed ever finished (postponed, cancelled, a feed gone
+        // quiet): voided after the configured wait. Staff's own events wait for staff.
         if (($days = $this->config->autoVoidDays()) > 0) {
-            foreach (Event::query()->where('status', Event::OPEN)->whereNotNull('picks_event_id')
+            foreach (Event::query()->where('status', Event::OPEN)->where('source', '!=', 'manual')
                 ->where('starts_at', '<', Carbon::now()->subDays($days))->orderBy('id')->limit(100)->get() as $event) {
                 $safely('voiding event '.$event->id, function () use ($event, &$done) {
                     $this->voidEvent($event);

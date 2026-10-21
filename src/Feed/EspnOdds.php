@@ -8,10 +8,7 @@ use ErnestDefoe\Longshot\Grader;
 use ErnestDefoe\Longshot\Model\Event;
 use ErnestDefoe\Longshot\Model\Market;
 use ErnestDefoe\Longshot\Odds;
-use GuzzleHttp\Client;
 use Illuminate\Database\ConnectionInterface;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Prices for games imported from Picks, read from ESPN's public scoreboard.
@@ -38,8 +35,8 @@ class EspnOdds
     public function __construct(
         private ConnectionInterface $db,
         private Config $config,
-        private LoggerInterface $log,
-        private ?Client $http = null
+        private Providers\Espn $espn,
+        private Pricer $pricer,
     ) {
     }
 
@@ -100,9 +97,9 @@ class EspnOdds
             [$path, $day] = explode('|', $key);
             $calls++;
 
-            foreach ($this->fetch($path, $day) as $espnId => $prices) {
+            foreach ($this->fetch($path, $day) as $espnId => $found) {
                 if (isset($events[$espnId])) {
-                    $updated += $this->apply($events[$espnId], $prices);
+                    $updated += $this->pricer->apply($events[$espnId], $found['prices'], $found['book']);
                 }
             }
         }
@@ -113,41 +110,16 @@ class EspnOdds
     /** @return array<string, array<string, mixed>> ESPN event id => parsed prices */
     private function fetch(string $path, string $day): array
     {
-        $query = ['dates' => $day, 'limit' => 400];
-        if ($path === 'football/college-football') {
-            $query['groups'] = 80;
-        }
-
-        try {
-            $response = ($this->http ?? new Client())->get(self::BASE.$path.'/scoreboard', [
-                'query' => $query,
-                'timeout' => 10,
-                'connect_timeout' => 5,
-                'http_errors' => false,
-                'allow_redirects' => false,
-                'headers' => ['Accept' => 'application/json'],
-            ]);
-        } catch (Throwable $e) {
-            $this->log->warning('[longshot] ESPN odds fetch failed for '.$path.' '.$day.': '.$e->getMessage());
-
-            return [];
-        }
-
-        if ($response->getStatusCode() !== 200) {
-            // The status is the diagnosis: a 403 is a header problem, not an outage.
-            $this->log->warning('[longshot] ESPN odds fetch for '.$path.' '.$day.' answered HTTP '.$response->getStatusCode());
-
-            return [];
-        }
-
-        $data = json_decode((string) $response->getBody(), true);
+        // Through the shared, budgeted client: every ESPN call Longshot makes
+        // counts against one budget and one circuit breaker.
+        $data = $this->espn->scoreboard($path, ['dates' => $day]);
         $out = [];
 
         foreach ((array) ($data['events'] ?? []) as $event) {
             $odds = ((array) (($event['competitions'][0] ?? [])['odds'] ?? []))[0] ?? null;
 
             if (is_array($odds) && isset($event['id'])) {
-                $out[(string) $event['id']] = self::parse($odds);
+                $out[(string) $event['id']] = ['prices' => self::parse($odds), 'book' => ! empty($odds['provider']['name']) ? $odds['provider']['name'].' (via ESPN)' : null];
             }
         }
 
@@ -190,52 +162,5 @@ class EspnOdds
                 'under' => $price((array) ($total['under'] ?? [])),
             ],
         ];
-    }
-
-    /**
-     * Write one game's prices to its feed-priced markets. A market the feed
-     * has no complete price for keeps what it had.
-     *
-     * @param array<string, array<string, mixed>> $prices
-     */
-    private function apply(int $eventId, array $prices): int
-    {
-        $updated = 0;
-
-        $markets = Market::query()->where('event_id', $eventId)->where('feed', true)->where('status', Market::OPEN)->with('selections')->get();
-
-        foreach ($markets as $market) {
-            $feed = $prices[$market->type] ?? null;
-
-            if (! $feed) {
-                continue;
-            }
-
-            $selections = $market->selections->keyBy('key');
-            $complete = $selections->every(fn ($s) => isset($feed[$s->key]))
-                && (! $market->hasLine() || $feed['line'] !== null);
-
-            if (! $complete) {
-                continue;
-            }
-
-            $this->db->transaction(function () use ($market, $selections, $feed, &$updated) {
-                if ($market->hasLine() && Grader::normalise($market->line) !== $feed['line']) {
-                    $market->line = $feed['line'];
-                    $market->save();
-                    $updated++;
-                }
-
-                foreach ($selections as $key => $selection) {
-                    if ($selection->odds !== $feed[$key]) {
-                        $selection->odds = $feed[$key];
-                        $selection->save();
-                        $updated++;
-                    }
-                }
-            });
-        }
-
-        return $updated;
     }
 }

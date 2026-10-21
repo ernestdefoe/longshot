@@ -19,6 +19,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null    $home_score
  * @property int|null    $away_score
  * @property int|null    $picks_event_id
+ * @property string      $source
+ * @property string|null $external_id
+ * @property string|null $league_key
+ * @property bool        $locked
+ * @property int|null    $home_team_id
+ * @property int|null    $away_team_id
  * @property int|null    $created_by
  * @property Carbon|null $settled_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Market> $markets
@@ -28,6 +34,8 @@ class Event extends AbstractModel
     public const OPEN = 'open';
     public const SETTLED = 'settled';
     public const VOID = 'void';
+    /** Taken off the board by staff; kept so a sync does not bring it back. */
+    public const HIDDEN = 'hidden';
 
     public $timestamps = true;
 
@@ -39,6 +47,9 @@ class Event extends AbstractModel
         'home_score' => 'integer',
         'away_score' => 'integer',
         'picks_event_id' => 'integer',
+        'locked' => 'boolean',
+        'home_team_id' => 'integer',
+        'away_team_id' => 'integer',
     ];
 
     /** @return HasMany<Market, $this> */
