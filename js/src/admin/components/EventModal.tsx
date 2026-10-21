@@ -1,4 +1,4 @@
-import Modal, { type IInternalModalAttrs } from 'flarum/common/components/Modal';
+import FormModal, { type IFormModalAttrs } from 'flarum/common/components/FormModal';
 import extractText from 'flarum/common/utils/extractText';
 import Button from 'flarum/common/components/Button';
 import Select from 'flarum/common/components/Select';
@@ -8,7 +8,7 @@ import type { BookEvent, MarketType } from '../../common/types';
 import { t } from '../../common/t';
 import { adminSend } from '../api';
 
-interface Attrs extends IInternalModalAttrs {
+interface Attrs extends IFormModalAttrs {
   event?: BookEvent;
   onsave: () => void;
 }
@@ -34,7 +34,7 @@ interface EditMarket {
 const KEYS: Record<string, string[]> = { moneyline: ['away', 'home'], spread: ['away', 'home'], total: ['over', 'under'] };
 
 /** Create or edit an event and its markets. */
-export default class EventModal extends Modal<Attrs> {
+export default class EventModal extends FormModal<Attrs> {
   matchup = true;
   title_ = '';
   home = '';
@@ -162,7 +162,7 @@ export default class EventModal extends Modal<Attrs> {
     return (
       <fieldset className="Longshot-editMarket" disabled={mk.locked}>
         <legend>
-          {mk.type === 'custom' ? t('admin.event.custom') : t('forum.market.' + mk.type)}
+          {mk.type === 'custom' ? t('admin.event.custom') : t('admin.event.type_' + mk.type)}
           {mk.locked ? ` · ${t('admin.event.finished')}` : ''}
         </legend>
 

@@ -1,4 +1,4 @@
-import Modal, { type IInternalModalAttrs } from 'flarum/common/components/Modal';
+import FormModal, { type IFormModalAttrs } from 'flarum/common/components/FormModal';
 import extractText from 'flarum/common/utils/extractText';
 import Button from 'flarum/common/components/Button';
 import type Mithril from 'mithril';
@@ -6,13 +6,13 @@ import type { BookEvent } from '../../common/types';
 import { t } from '../../common/t';
 import { adminSend } from '../api';
 
-interface Attrs extends IInternalModalAttrs {
+interface Attrs extends IFormModalAttrs {
   event: BookEvent;
   onsave: () => void;
 }
 
 /** Enter a final score: every moneyline, spread and total is graded from it, once. */
-export default class ScoreModal extends Modal<Attrs> {
+export default class ScoreModal extends FormModal<Attrs> {
   home = '';
   away = '';
 

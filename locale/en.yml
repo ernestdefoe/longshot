@@ -219,7 +219,7 @@ ernestdefoe-longshot:
       event: Event
       starts: Starts
       activity: Activity
-      counts: "{bets} bets · {offers} offers"
+      counts: "{bets, plural, one {# bet} other {# bets}} · {offers, plural, one {# offer} other {# offers}}"
       from_picks: from Picks
       status_settled: settled
       status_void: void
@@ -243,6 +243,9 @@ ernestdefoe-longshot:
       starts_help: In your browser's time zone.
       markets: Markets
       custom: Custom market
+      type_moneyline: Moneyline
+      type_spread: Spread
+      type_total: Total
       finished: settled
       market_name: Market name
       home_line: Home team's line

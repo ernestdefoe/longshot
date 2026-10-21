@@ -1,4 +1,4 @@
-import Modal, { type IInternalModalAttrs } from 'flarum/common/components/Modal';
+import FormModal, { type IFormModalAttrs } from 'flarum/common/components/FormModal';
 import extractText from 'flarum/common/utils/extractText';
 import Button from 'flarum/common/components/Button';
 import Select from 'flarum/common/components/Select';
@@ -7,14 +7,14 @@ import type { BookEvent, Market } from '../../common/types';
 import { t } from '../../common/t';
 import { adminSend } from '../api';
 
-interface Attrs extends IInternalModalAttrs {
+interface Attrs extends IFormModalAttrs {
   event: BookEvent;
   market: Market;
   onsave: () => void;
 }
 
 /** Name the result of a custom market, option by option. */
-export default class ResolveModal extends Modal<Attrs> {
+export default class ResolveModal extends FormModal<Attrs> {
   results: Record<number, string> = {};
 
   className() {
