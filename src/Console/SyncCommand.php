@@ -16,7 +16,7 @@ use Illuminate\Contracts\Queue\Queue;
  */
 class SyncCommand extends AbstractCommand
 {
-    public function __construct(private PicksBridge $picks, private EspnOdds $odds, private Sync $sync, private Queue $queue)
+    public function __construct(private PicksBridge $picks, private EspnOdds $odds, private Sync $sync, private Queue $queue, private \ErnestDefoe\Longshot\Feed\Logos $logos)
     {
         parent::__construct();
     }
@@ -34,10 +34,15 @@ class SyncCommand extends AbstractCommand
             $this->info(sprintf('Picks: imported %d games; %d odds calls updated %d prices.', $imported, $odds['calls'], $odds['updated']));
         }
 
-        foreach ($this->sync->followed() as $league) {
+        // Followed leagues, and Picks' leagues too: their fixtures stay Picks',
+        // but their teams get cached logos, colours and a league badge.
+        foreach ($this->sync->leaguesToSync() as $league) {
             $this->queue->push(new SyncLeague($league->key));
             $this->info('Queued '.$league->name.'.');
         }
+
+        // Logos waiting to be cached: CDN downloads, not API calls, 25 a run.
+        $this->info(sprintf('Cached %d logos.', $this->logos->cacheTeams()));
 
         return 0;
     }

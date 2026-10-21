@@ -24,6 +24,8 @@ return Migration::createTable('longshot_events', function (Blueprint $table) {
     $table->string('away_name', 100)->nullable();
     $table->string('home_logo', 255)->nullable();
     $table->string('away_logo', 255)->nullable();
+    $table->string('home_color', 7)->nullable();
+    $table->string('away_color', 7)->nullable();
     $table->dateTime('starts_at');
     $table->string('status', 16)->default('open');
     $table->integer('home_score')->nullable();

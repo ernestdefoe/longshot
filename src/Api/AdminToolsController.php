@@ -38,7 +38,8 @@ class AdminToolsController implements RequestHandlerInterface
         private EspnOdds $odds,
         private Settlement $settlement,
         private TranslatorInterface $translator,
-        private Cache $cache
+        private Cache $cache,
+        private \ErnestDefoe\Longshot\Feed\Sync $sync
     ) {
     }
 
@@ -153,11 +154,22 @@ class AdminToolsController implements RequestHandlerInterface
             throw new ValidationException(['sync' => $this->translator->trans('ernestdefoe-longshot.api.admin.slow_down')]);
         }
 
+        $began = microtime(true);
         $imported = $this->picks->import();
-        // At most ~20 seconds of ESPN calls here; the scheduled run does the rest.
+        // At most ~20 seconds of ESPN calls for Picks' games here; the scheduled run does the rest.
         $odds = $this->odds->run(20);
+
+        $leagues = [];
+        foreach ($this->sync->leaguesToSync() as $league) {
+            if (microtime(true) - $began > 25) {
+                $leagues[] = ['league' => $league->key, 'skipped' => true];
+                continue;
+            }
+            $leagues[] = $this->sync->league($league, true);
+        }
+
         $settled = $this->settlement->sweep();
 
-        return new JsonResponse(['data' => ['imported' => $imported, 'odds' => $odds, 'settled' => $settled]]);
+        return new JsonResponse(['data' => ['imported' => $imported, 'odds' => $odds, 'leagues' => $leagues, 'settled' => $settled]]);
     }
 }

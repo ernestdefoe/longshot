@@ -87,7 +87,7 @@ class Logos
 
     /**
      * Cache logos that are missing or whose source changed, a few per run.
-     * Open events carrying the team are pointed at the cached copy.
+     * Events carrying the team are pointed at the cached copy.
      */
     public function cacheTeams(int $limit = 25): int
     {
@@ -98,31 +98,40 @@ class Logos
             ->orderBy('id')->limit($limit * 2)->get();
 
         foreach ($teams as $team) {
-            if ($done >= $limit || $this->cache->has('longshot.logo-failed.'.$team->id)) {
-                continue;
+            if ($done < $limit && $this->cacheTeam($team)) {
+                $done++;
             }
-
-            $path = $this->store((string) $team->logo_source, 'team-'.$team->id);
-
-            if (! $path) {
-                // Not again for a week: a dead link is not retried every run.
-                $this->cache->put('longshot.logo-failed.'.$team->id, 1, 86400 * 7);
-                continue;
-            }
-
-            $old = $team->logo_path;
-            $team->logo_path = $path;
-            $team->save();
-
-            if ($old && $old !== $path) {
-                $this->disk()->delete($old);
-            }
-
-            $this->point($team);
-            $done++;
         }
 
         return $done;
+    }
+
+    public function cacheTeam(Team $team): bool
+    {
+        // Not again for a week after a failure: a dead link is not retried every run.
+        if (! $team->logo_source || $this->cache->has('longshot.logo-failed.'.$team->id)) {
+            return false;
+        }
+
+        $path = $this->store($team->logo_source, 'team-'.$team->id);
+
+        if (! $path) {
+            $this->cache->put('longshot.logo-failed.'.$team->id, 1, 86400 * 7);
+
+            return false;
+        }
+
+        $old = $team->getOriginal('logo_path');
+        $team->logo_path = $path;
+        $team->save();
+
+        if ($old && $old !== $path) {
+            $this->disk()->delete($old);
+        }
+
+        $this->point($team);
+
+        return true;
     }
 
     /** Point open events at a team's cached logo (one update per side). */
@@ -130,8 +139,8 @@ class Logos
     {
         $url = $this->url($team->logo_path);
 
-        $this->db->table('longshot_events')->where('home_team_id', $team->id)->update(['home_logo' => $url]);
-        $this->db->table('longshot_events')->where('away_team_id', $team->id)->update(['away_logo' => $url]);
+        $this->db->table('longshot_events')->where('home_team_id', $team->id)->update(['home_logo' => $url, 'home_color' => $team->color]);
+        $this->db->table('longshot_events')->where('away_team_id', $team->id)->update(['away_logo' => $url, 'away_color' => $team->color]);
     }
 
     /** A league's badge, cached once a month. */

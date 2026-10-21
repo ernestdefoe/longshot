@@ -28,13 +28,16 @@ class Presenter
             'title' => $event->title,
             'name' => $event->name(),
             'league' => $event->league,
-            'home' => $event->home_name === null ? null : ['name' => $event->home_name, 'logo' => $event->home_logo],
-            'away' => $event->away_name === null ? null : ['name' => $event->away_name, 'logo' => $event->away_logo],
+            'leagueKey' => $event->league_key,
+            'home' => $event->home_name === null ? null : ['name' => $event->home_name, 'logo' => $event->home_logo, 'color' => $event->home_color],
+            'away' => $event->away_name === null ? null : ['name' => $event->away_name, 'logo' => $event->away_logo, 'color' => $event->away_color],
+            'locked' => $event->locked,
             'startsAt' => $event->starts_at->toIso8601String(),
             'status' => $event->status,
             'bettable' => $event->isBettable(),
             'score' => $event->home_score === null ? null : ['home' => $event->home_score, 'away' => $event->away_score],
             'linked' => $event->picks_event_id !== null,
+            'source' => $event->source,
         ];
 
         if ($withMarkets) {
@@ -54,6 +57,7 @@ class Presenter
             'line' => $market->hasLine() ? Grader::normalise($market->line) : null,
             'status' => $market->status,
             'feed' => $market->feed,
+            'oddsProvider' => $market->feed ? $market->odds_provider : null,
             'selections' => $market->selections->map(fn ($s) => [
                 'id' => $s->id,
                 'key' => $s->key,

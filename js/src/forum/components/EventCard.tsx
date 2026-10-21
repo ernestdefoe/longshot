@@ -10,6 +10,8 @@ import OddsButton from './OddsButton';
 
 export interface EventCardAttrs extends ComponentAttrs {
   event: BookEvent;
+  /** The league's badge, when the providers cached one. */
+  badge?: string | null;
   /** On the event's own page: no link to itself. */
   standalone?: boolean;
 }
@@ -33,7 +35,10 @@ export default class EventCard extends Component<EventCardAttrs> {
     return (
       <article className="Longshot-event">
         <header className="Longshot-event-head">
-          <span className="Longshot-event-league">{event.league}</span>
+          <span className="Longshot-event-league">
+            {this.attrs.badge ? <img src={this.attrs.badge} alt="" width="18" height="18" loading="lazy" decoding="async" /> : null}
+            {event.league}
+          </span>
           {this.status(event)}
           {this.attrs.standalone ? null : (
             <Link className="Longshot-event-more" href={app.route('longshot.event', { id: event.id })}>
@@ -55,7 +60,7 @@ export default class EventCard extends Component<EventCardAttrs> {
             </div>
             {ROWS.map((side) => (
               <div className="Longshot-grid-row" role="row" key={side}>
-                <span className="Longshot-team" role="rowheader">
+                <span className="Longshot-team" role="rowheader" style={event[side]?.color ? { '--team-color': event[side]!.color } : undefined}>
                   {event[side]?.logo ? <img src={event[side]!.logo!} alt="" width="24" height="24" loading="lazy" decoding="async" /> : null}
                   <span className="Longshot-team-name">{event[side]?.name}</span>
                   {event.score ? <strong className="Longshot-team-score">{event.score[side]}</strong> : null}

@@ -137,7 +137,14 @@
 }
 
 .Longshot-event-league {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
+
+  img {
+    object-fit: contain;
+  }
 }
 
 .Longshot-state {
@@ -193,6 +200,9 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  // The team's own colour, when a provider gave one: a thin bar.
+  border-left: 3px solid var(--team-color, transparent);
+  padding-left: 6px;
 
   img {
     flex: none;

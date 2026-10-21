@@ -12,6 +12,8 @@ import EventModal from './EventModal';
 import ScoreModal from './ScoreModal';
 import ResolveModal from './ResolveModal';
 import LimitsEditor from './LimitsEditor';
+import ProvidersPanel from './ProvidersPanel';
+import TeamsEditor from './TeamsEditor';
 
 /** The book itself: events, results, group limits and points by hand. */
 export default class BookManager extends Component {
@@ -40,8 +42,6 @@ export default class BookManager extends Component {
   }
 
   view(): Mithril.Children {
-    const picks = !!(app.forum.attribute('longshotAdmin') as any)?.picks;
-
     return (
       <div className="Longshot-manager">
         <h3 className="Longshot-adminHeading">{t('admin.book.title')}</h3>
@@ -51,11 +51,9 @@ export default class BookManager extends Component {
           <Button className="Button Button--primary" icon="fas fa-plus" onclick={() => app.modal.show(EventModal, { onsave: () => this.load() })}>
             {t('admin.book.new_event')}
           </Button>
-          {picks ? (
-            <Button className="Button" icon="fas fa-rotate" loading={this.syncing} onclick={() => this.sync()}>
-              {t('admin.book.sync')}
-            </Button>
-          ) : null}
+          <Button className="Button" icon="fas fa-rotate" loading={this.syncing} onclick={() => this.sync()}>
+            {t('admin.book.sync')}
+          </Button>
           {this.synced ? <span className="helpText">{this.synced}</span> : null}
         </div>
 
@@ -106,6 +104,10 @@ export default class BookManager extends Component {
           </Button>
         ) : null}
 
+        <ProvidersPanel />
+
+        <TeamsEditor leagues={{ ...((app.forum.attribute('longshotAdmin') as any)?.feedLeagues ?? {}) }} />
+
         <LimitsEditor />
 
         <h3 className="Longshot-adminHeading">{t('admin.grant.title')}</h3>
@@ -149,7 +151,8 @@ export default class BookManager extends Component {
           <strong>{event.name}</strong>
           <div className="helpText">
             {event.league}
-            {event.linked ? ` · ${t('admin.book.from_picks')}` : ''}
+            {event.source && event.source !== 'manual' ? ` · ${extractText(t('admin.book.from', { source: event.source }))}` : ''}
+            {event.locked ? ` · ${extractText(t('admin.book.locked'))}` : ''}
             {event.score ? ` · ${event.score.away}–${event.score.home}` : ''}
             {event.status !== 'open' ? ` · ${t('admin.book.status_' + event.status)}` : ''}
           </div>
@@ -209,6 +212,11 @@ export default class BookManager extends Component {
   void(event: BookEvent) {
     if (!confirm(extractText(t('admin.book.void_confirm', { name: event.name })))) return;
     adminSend('POST', `/events/${event.id}/void`).then(() => this.load());
+  }
+
+  hide(event: BookEvent) {
+    if (!confirm(extractText(t('admin.book.hide_confirm', { name: event.name })))) return;
+    adminSend('POST', `/events/${event.id}/hide`).then(() => this.load());
   }
 
   delete(event: BookEvent) {

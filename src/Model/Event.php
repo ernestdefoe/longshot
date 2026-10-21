@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $away_name
  * @property string|null $home_logo
  * @property string|null $away_logo
+ * @property string|null $home_color
+ * @property string|null $away_color
  * @property Carbon      $starts_at
  * @property string      $status
  * @property int|null    $home_score

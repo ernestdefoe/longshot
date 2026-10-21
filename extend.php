@@ -63,6 +63,11 @@ return [
         ->delete('/longshot/admin/events/{id:[0-9]+}', 'longshot.admin.events.delete', Api\AdminEventsController::class)
         ->post('/longshot/admin/events/{id:[0-9]+}/score', 'longshot.admin.events.score', Api\AdminEventsController::class)
         ->post('/longshot/admin/events/{id:[0-9]+}/void', 'longshot.admin.events.void', Api\AdminEventsController::class)
+        ->post('/longshot/admin/events/{id:[0-9]+}/hide', 'longshot.admin.events.hide', Api\AdminEventsController::class)
+        ->get('/longshot/admin/providers', 'longshot.admin.providers.index', Api\AdminFeedController::class)
+        ->post('/longshot/admin/providers/{key:[a-z]+}/test', 'longshot.admin.providers.test', Api\AdminFeedController::class)
+        ->get('/longshot/admin/teams', 'longshot.admin.teams.index', Api\AdminFeedController::class)
+        ->patch('/longshot/admin/teams/{id:[0-9]+}', 'longshot.admin.teams.update', Api\AdminFeedController::class)
         ->post('/longshot/admin/markets/{id:[0-9]+}/resolve', 'longshot.admin.markets.resolve', Api\AdminEventsController::class)
         ->post('/longshot/admin/markets/{id:[0-9]+}/void', 'longshot.admin.markets.void', Api\AdminEventsController::class)
         ->get('/longshot/admin/limits', 'longshot.admin.limits.index', Api\AdminToolsController::class)
@@ -111,6 +116,7 @@ return [
         ->default('ernestdefoe-longshot.horizon_days', 7)
         ->default('ernestdefoe-longshot.auto_void_days', 3)
         ->default('ernestdefoe-longshot.public_history', true)
+        ->default('ernestdefoe-longshot.leagues', '')
         ->serializeToForum('longshotShowNav', 'ernestdefoe-longshot.show_nav', 'boolval'),
 
     // A permission the actor's groups were already loaded for: no query.

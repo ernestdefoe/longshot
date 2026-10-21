@@ -57,15 +57,21 @@ class EventSaver
             $this->fail('markets', 'too_many_markets');
         }
 
-        return $this->db->transaction(function () use ($actor, $event, $title, $home, $away, $league, $starts, $markets) {
+        return $this->db->transaction(function () use ($actor, $event, $title, $home, $away, $league, $starts, $markets, $data) {
             $event ??= new Event();
 
-            if ($event->exists && $event->picks_event_id) {
-                // A game from Picks keeps Picks' teams and kickoff (the sync
-                // would put them back). To close it early, suspend its markets.
+            if ($event->exists && $event->source !== 'manual' && ! ($data['locked'] ?? $event->locked)) {
+                // An imported game keeps its feed's teams and kickoff (the sync
+                // would put them back) unless staff lock it first. To close it
+                // early without locking, suspend its markets.
                 $home = $event->home_name;
                 $away = $event->away_name;
                 $starts = $event->starts_at;
+            }
+
+            // Staff's hands-off switch: no sync moves, renames or reschedules a locked event.
+            if (array_key_exists('locked', $data)) {
+                $event->locked = (bool) $data['locked'];
             }
 
             $event->title = $title;

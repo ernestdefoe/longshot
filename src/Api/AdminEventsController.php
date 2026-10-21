@@ -27,6 +27,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * DELETE /api/longshot/admin/events/{id}             only if nothing was ever placed on it
  * POST   /api/longshot/admin/events/{id}/score       { home, away }
  * POST   /api/longshot/admin/events/{id}/void
+ * POST   /api/longshot/admin/events/{id}/hide        off the board for good (nothing placed on it)
  * POST   /api/longshot/admin/markets/{id}/resolve    { results: { selectionId: win|lose|void } }
  * POST   /api/longshot/admin/markets/{id}/void
  */
@@ -123,6 +124,19 @@ class AdminEventsController implements RequestHandlerInterface
             return $this->show($event->id);
         }
 
+        // Off the board, and never brought back by a sync. Only while nothing
+        // was placed on it: a game with bets is voided instead.
+        if ($action === 'hide') {
+            if ($this->saver->used($event) || $event->status !== Event::OPEN) {
+                throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
+            }
+
+            $event->status = Event::HIDDEN;
+            $event->save();
+
+            return $this->show($event->id);
+        }
+
         return $this->show($this->saver->save($actor, $event, $body)->id);
     }
 
@@ -134,7 +148,7 @@ class AdminEventsController implements RequestHandlerInterface
         $offset = max(0, min(100000, (int) ($query['offset'] ?? 0)));
 
         $events = Event::query()
-            ->when($finished, fn (Builder $q) => $q->where('status', '!=', Event::OPEN), fn (Builder $q) => $q->where('status', Event::OPEN))
+            ->when($finished, fn (Builder $q) => $q->whereIn('status', [Event::SETTLED, Event::VOID, Event::HIDDEN]), fn (Builder $q) => $q->where('status', Event::OPEN))
             ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $q) => $q
                 ->where('title', 'like', '%'.addcslashes($search, '%_\\').'%')
                 ->orWhere('home_name', 'like', '%'.addcslashes($search, '%_\\').'%')

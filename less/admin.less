@@ -66,3 +66,73 @@
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
 }
+
+.Longshot-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 4px;
+  border: 1px solid var(--control-bg);
+}
+
+.Longshot-provider {
+  border: 1px solid var(--control-bg);
+  border-radius: var(--border-radius);
+  padding: 12px 16px;
+  margin: 12px 0;
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .Form-group,
+    .Checkbox {
+      margin: 0 0 0 auto;
+    }
+  }
+
+  &.is-off {
+    opacity: 0.7;
+  }
+}
+
+.Longshot-providerState {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--control-bg);
+
+  &.is-ready {
+    background: var(--alert-success-bg);
+    color: var(--alert-success-color);
+  }
+
+  &.is-paused {
+    background: var(--alert-error-bg);
+    color: var(--alert-error-color);
+  }
+}
+
+.Longshot-providerError {
+  color: var(--validation-error-color);
+  font-size: 13px;
+}
+
+.Longshot-ok {
+  color: var(--control-success-color);
+  font-weight: 600;
+}
+
+.Longshot-teams select {
+  max-width: 320px;
+}
+
+.Longshot-teams label > span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}

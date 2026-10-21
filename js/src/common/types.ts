@@ -24,12 +24,14 @@ export interface Market {
   line: string | null;
   status: 'open' | 'suspended' | 'settled' | 'void';
   feed: boolean;
+  oddsProvider?: string | null;
   selections: Selection[];
 }
 
 export interface Side {
   name: string;
   logo: string | null;
+  color: string | null;
 }
 
 export interface BookEvent {
@@ -37,6 +39,7 @@ export interface BookEvent {
   title: string | null;
   name: string;
   league: string;
+  leagueKey?: string | null;
   home: Side | null;
   away: Side | null;
   startsAt: string;
@@ -44,6 +47,8 @@ export interface BookEvent {
   bettable: boolean;
   score: { home: number; away: number } | null;
   linked: boolean;
+  source?: string;
+  locked?: boolean;
   markets?: Market[];
   offers?: number;
   bets?: number;

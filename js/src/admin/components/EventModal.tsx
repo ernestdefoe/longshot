@@ -43,6 +43,8 @@ export default class EventModal extends FormModal<Attrs> {
   startsAt = '';
   markets: EditMarket[] = [];
   linked = false;
+  imported = false;
+  locked = false;
 
   oninit(vnode: Mithril.Vnode<Attrs, this>) {
     super.oninit(vnode);
@@ -63,6 +65,8 @@ export default class EventModal extends FormModal<Attrs> {
     this.league = e.league;
     this.startsAt = local(e.startsAt);
     this.linked = e.linked;
+    this.imported = !!e.source && e.source !== 'manual';
+    this.locked = !!e.locked;
     this.markets = (e.markets ?? []).map((mk) => ({
       id: mk.id,
       type: mk.type,
@@ -114,12 +118,19 @@ export default class EventModal extends FormModal<Attrs> {
           </div>
         ) : null}
 
-        {this.linked ? <p className="helpText">{t('admin.event.linked_help')}</p> : null}
+        {this.imported ? (
+          <div className="Form-group">
+            <Switch state={this.locked} onchange={(v: boolean) => (this.locked = v)}>
+              {t('admin.event.lock')}
+            </Switch>
+            <p className="helpText">{t(this.locked ? 'admin.event.locked_help' : 'admin.event.linked_help', { source: this.attrs.event?.source })}</p>
+          </div>
+        ) : null}
 
         {this.matchup ? (
           <div className="Longshot-form-row">
-            {this.input('away', t('admin.event.away'), this.linked)}
-            {this.input('home', t('admin.event.home'), this.linked)}
+            {this.input('away', t('admin.event.away'), this.imported && !this.locked)}
+            {this.input('home', t('admin.event.home'), this.imported && !this.locked)}
           </div>
         ) : (
           this.input('title_', t('admin.event.title'))
@@ -215,7 +226,7 @@ export default class EventModal extends FormModal<Attrs> {
               onchange={(v: 'open' | 'suspended') => (mk.status = v)}
             />
           </div>
-          {this.linked && fixed ? (
+          {this.imported && fixed ? (
             <div className="Form-group">
               <Switch state={mk.feed} onchange={(v: boolean) => (mk.feed = v)}>
                 {t('admin.event.feed')}
@@ -291,6 +302,7 @@ export default class EventModal extends FormModal<Attrs> {
     this.loading = true;
 
     const body = {
+      locked: this.locked,
       title: this.matchup ? null : this.title_,
       home: this.matchup ? this.home : null,
       away: this.matchup ? this.away : null,

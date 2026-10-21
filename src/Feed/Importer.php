@@ -134,6 +134,8 @@ class Importer
             $event->away_name = $away->name;
             $event->home_logo = $this->logos->url($home->logo_path);
             $event->away_logo = $this->logos->url($away->logo_path);
+            $event->home_color = $home->color;
+            $event->away_color = $away->color;
             $event->starts_at = $game->startsAt;
             $event->status = Event::OPEN;
             $event->save();
@@ -184,7 +186,7 @@ class Importer
 
         foreach (['home', 'away'] as $side) {
             $this->db->table('longshot_events')->where($side.'_team_id', $team->id)->where('locked', false)
-                ->update([$side.'_name' => $team->name, $side.'_logo' => $url]);
+                ->update([$side.'_name' => $team->name, $side.'_logo' => $url, $side.'_color' => $team->color]);
         }
     }
 }

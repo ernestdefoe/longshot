@@ -26,6 +26,7 @@ ernestdefoe-longshot:
       over: Over
       under: Under
       suspended: Suspended
+      priced_by: "Prices: {provider}"
     board:
       leagues: Leagues
       all: All
@@ -221,6 +222,10 @@ ernestdefoe-longshot:
       activity: Activity
       counts: "{bets, plural, one {# bet} other {# bets}} · {offers, plural, one {# offer} other {# offers}}"
       from_picks: from Picks
+      from: "from {source}"
+      locked: locked
+      hide: Hide
+      hide_confirm: "Take {name} off the board? Syncs won't bring it back."
       status_settled: settled
       status_void: void
       edit: Edit
@@ -234,7 +239,9 @@ ernestdefoe-longshot:
       new_title: New event
       edit_title: Edit event
       matchup: A game between two sides
-      linked_help: "This game comes from Picks: its teams and kickoff follow Picks. To stop bets early, suspend its markets."
+      linked_help: "This game comes from {source}: its teams and kickoff follow the feed. Lock it to edit them, or suspend its markets to stop bets early."
+      lock: Lock against syncs
+      locked_help: "Locked: no sync changes its sides, kickoff or status, so your edits stand. Prices still follow the feed on markets that do; its final score still settles it."
       home: Home
       away: Away
       title: Title
@@ -282,6 +289,64 @@ ernestdefoe-longshot:
       void: Void (stake back)
       submit: Settle
       confirm: Settle this market? This pays out and can't be undone.
+    feed:
+      title: Data providers
+      help: "Longshot can run the book by itself: games imported a few days ahead, priced until kickoff, closed when they start, settled from final scores, and branded with team logos, colours and league badges (fetched once, resized and served from your forum). Providers are tried in order and skipped while they fail or have spent their budget. ESPN needs no key; the others light up when you add one."
+      follow: Leagues to follow
+      follow_help: "Games in these leagues are brought in automatically. Leagues your Picks extension plays are left to Picks."
+      state_ready: Ready
+      state_paused: Paused
+      state_off: "Off"
+      state_needs_key: Needs a key
+      enabled: "On"
+      gives: "Gives: {what}."
+      give_schedules: schedules
+      give_odds: odds
+      give_results: results
+      give_branding: logos and colours
+      covers: "Leagues: {leagues}."
+      about_espn: "Free, no key. ESPN's public scoreboards: every game, its status and score, one sportsbook's prices and the teams' logos and colours. Unofficial and unsupported by ESPN, so it is budgeted and paused when it misbehaves."
+      about_apifootball: "Soccer. Free plan: 100 requests a day. Fixtures, 90-minute results (so extra time never decides a bet) and Bet365 prices."
+      about_oddsapi: "Prices from many bookmakers for every league here. Free plan: 500 credits a month; a price check costs 3 credits, a results check 2, so it is only asked about games ESPN could not price."
+      about_cfbd: "College football lines for the games ESPN doesn't price. Free tier: 1,000 calls a month, shared with Picks if you use its key."
+      about_sportsdb: "Team badges, colours and league badges. Works without a key (ten teams per league, about 30 calls a minute); a supporter key gives every team."
+      key: API key
+      key_optional: API key (optional)
+      get_key: Get a key
+      key_saved: Key saved (type to replace)
+      key_from_picks: Using Picks' key (type to use your own)
+      key_placeholder: Paste the key
+      clear_key: Remove key
+      budget_day: Calls per day
+      budget_month: Calls (credits) per month
+      used: "{used} of {budget} used {period}."
+      per_day: today
+      per_month: this month
+      per_minute: "At most {count} a minute."
+      paused: "Paused after errors until {until}; the next provider is used meanwhile."
+      last_error: "Last error: {message} ({at})"
+      save: Save
+      test: Test
+      test_ok: Working
+      test_failed: Not working (see the error above)
+      terms: Terms of use
+    teams:
+      title: Teams
+      help: "The teams your providers brought in. Fix a name, a colour or a logo here; an edited team is locked so syncs leave it alone."
+      pick_league: Choose a league…
+      none: No teams in this league yet.
+      locked: locked
+      edit: Edit
+      name: Name
+      abbreviation: Abbreviation
+      color: Colour
+      alt_color: Second colour
+      logo: Logo address
+      logo_help: "An image on ESPN's, TheSportsDB's or API-Football's servers (https). It is downloaded once, resized and served from your forum."
+      save: Save and lock
+      unlock: Unlock (let syncs update it)
+      cancel: Cancel
+      failed: Could not save the team.
     limits:
       title: Limits by group
       help: "Leave a field empty to use the forum's default. A member in several groups gets the most generous value; a daily limit of 0 means none."
@@ -341,3 +406,7 @@ ernestdefoe-longshot:
       no_user: No member has that username.
       amount: Give a whole number of points to add, or a negative number to take away, that the balance can cover.
       slow_down: A sync is already running. Try again in a minute.
+      no_provider: There is no such data provider.
+      team_name: A team needs a name of up to 100 characters.
+      team_color: Colours are written like #1a2b3c.
+      team_logo: "A logo must be an https address on ESPN's, TheSportsDB's or API-Football's image servers."

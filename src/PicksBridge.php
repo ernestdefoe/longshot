@@ -165,6 +165,8 @@ class PicksBridge
                 'away_name' => mb_substr($awayTeam->name, 0, 100),
                 'home_logo' => $this->logo($homeTeam, $home->logo_url),
                 'away_logo' => $this->logo($awayTeam, $away->logo_url),
+                'home_color' => $homeTeam->color,
+                'away_color' => $awayTeam->color,
                 'starts_at' => $starts,
                 'status' => Event::OPEN,
                 'picks_event_id' => $picksId,

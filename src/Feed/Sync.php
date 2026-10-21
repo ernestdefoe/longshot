@@ -43,6 +43,18 @@ class Sync
     ) {
     }
 
+    /**
+     * Followed leagues plus the leagues Picks plays (branded only).
+     *
+     * @return list<League>
+     */
+    public function leaguesToSync(): array
+    {
+        $keys = array_unique(array_merge($this->config->followedLeagues(), $this->picks->leagues()));
+
+        return array_values(array_filter(array_map(fn ($key) => $this->leagues->get($key), $keys)));
+    }
+
     /** @return list<League> */
     public function followed(): array
     {

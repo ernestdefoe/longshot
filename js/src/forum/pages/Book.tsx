@@ -98,6 +98,7 @@ export class BoardPage extends BookPage {
   tab = 'board';
   events: BookEvent[] | null = null;
   leagues: string[] = [];
+  badges: Record<string, string> = {};
   league = '';
   more = false;
   loading = false;
@@ -118,6 +119,7 @@ export class BoardPage extends BookPage {
     }).then((r) => {
       this.events = reset ? r.data : [...(this.events ?? []), ...r.data];
       this.leagues = r.meta.leagues;
+      this.badges = { ...this.badges, ...(r.meta.badges ?? {}) };
       this.more = r.meta.more;
       this.loading = false;
       m.redraw();
@@ -159,7 +161,7 @@ export class BoardPage extends BookPage {
           return (
             <div key={event.id}>
               {heading}
-              <EventCard event={event} />
+              <EventCard event={event} badge={event.leagueKey ? this.badges[event.leagueKey] : null} />
             </div>
           );
         })}
@@ -219,6 +221,7 @@ export class EventPage extends BookPage {
                 <OddsButton event={event} market={market} selection={s} named />
               ))}
             </div>
+            {market.oddsProvider ? <p className="Longshot-muted">{t('forum.market.priced_by', { provider: market.oddsProvider })}</p> : null}
           </section>
         ))}
 
