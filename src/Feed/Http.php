@@ -98,7 +98,7 @@ class Http
         }
 
         try {
-            $response = ($this->client ?? new Client())->get($url, $this->options([], ['Accept' => 'image/png,image/jpeg,image/webp,image/gif'], 10));
+            $response = ($this->client ?? new Client())->get($url, $this->options([], ['Accept' => 'image/png,image/jpeg,image/webp,image/gif'], 10, $maxBytes));
 
             return $response->getStatusCode() === 200 ? $this->read($response->getBody(), $maxBytes) : null;
         } catch (Throwable) {
@@ -111,7 +111,7 @@ class Http
      * @param array<string, string> $headers
      * @return array<string, mixed>
      */
-    private function options(array $query, array $headers, int $timeout): array
+    private function options(array $query, array $headers, int $timeout, int $max = self::MAX_BYTES): array
     {
         return [
             'query' => $query,
@@ -120,8 +120,13 @@ class Http
             'connect_timeout' => 5,
             'http_errors' => false,
             'allow_redirects' => false,
-            // Streamed and read to a cap: an oversized answer is cut off, not buffered.
-            'stream' => true,
+            // Cut off mid-download past the cap, rather than buffered and then refused.
+            // (Not 'stream' => true: that swaps curl for PHP's stream wrapper.)
+            'progress' => function ($total, $downloaded) use ($max): void {
+                if ($downloaded > $max || $total > $max) {
+                    throw new \RuntimeException('response too large');
+                }
+            },
         ];
     }
 

@@ -18,10 +18,14 @@ class ProviderKeySaved
     public function handle(Saved $event): void
     {
         foreach (array_keys($event->settings) as $key) {
-            if (preg_match('/^ernestdefoe-longshot\.provider_([a-z]+)_(key|enabled)$/', (string) $key, $m)) {
-                $this->cache->forget('longshot.down.'.$m[1]);
-                $this->cache->forget('longshot.failures.'.$m[1]);
-                $this->cache->forget('longshot.error.'.$m[1]);
+            $provider = preg_match('/^ernestdefoe-longshot\.provider_([a-z]+)_(key|enabled)$/', (string) $key, $m) ? $m[1]
+                // Picks' CFBD key is the one CollegeFootballData uses when Longshot has none.
+                : ($key === 'ernestdefoe-picks.cfbd_api_key' ? 'cfbd' : null);
+
+            if ($provider) {
+                $this->cache->forget('longshot.down.'.$provider);
+                $this->cache->forget('longshot.failures.'.$provider);
+                $this->cache->forget('longshot.error.'.$provider);
             }
         }
     }

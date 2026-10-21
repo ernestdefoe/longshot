@@ -77,7 +77,8 @@ class Logos
         // Dimensions from the header, before anything is decoded.
         $size = @getimagesizefromstring($bytes);
         if (! $size || $size[0] < 1 || $size[1] < 1 || $size[0] > self::MAX_PIXELS || $size[1] > self::MAX_PIXELS
-            || ! in_array($size[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_WEBP, IMAGETYPE_GIF], true)) {
+            // No GIF: an animated one is decoded frame by frame.
+            || ! in_array($size[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_WEBP], true)) {
             return null;
         }
 

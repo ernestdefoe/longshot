@@ -211,18 +211,23 @@ class FeedTest extends TestCase
         $this->assertSame($calls, count($this->requests));
     }
 
-    #[Test]
-    public function a_failing_provider_pauses_and_the_next_one_answers(): void
+    private function apiFootball(): void
     {
         $this->setting('ernestdefoe-longshot.provider_apifootball_key', 'test-key');
-        $this->routes['soccer/eng.1/scoreboard'] = fn () => $this->reply('{}', 500);
         $this->routes['v3.football.api-sports.io/fixtures'] = fn () => $this->reply(json_encode(['errors' => [], 'response' => [[
             'fixture' => ['id' => 9001, 'date' => '2026-10-24T14:00:00+00:00', 'status' => ['short' => 'NS']],
             'teams' => ['home' => ['id' => 33, 'name' => 'Manchester United', 'logo' => 'https://media.api-sports.io/football/teams/33.png'], 'away' => ['id' => 40, 'name' => 'Liverpool', 'logo' => 'https://media.api-sports.io/football/teams/40.png']],
             'score' => ['fulltime' => ['home' => null, 'away' => null]],
         ]]]));
         $this->routes['v3.football.api-sports.io/odds'] = fn () => $this->reply('{"errors":[],"response":[]}');
-        $this->routes['api-sports.io/football/teams'] = fn () => new Response(200, [], $this->png());
+    }
+
+    #[Test]
+    public function the_first_usable_provider_brings_the_league_in(): void
+    {
+        // ESPN switched off by staff: API-Football is the league's provider.
+        $this->setting('ernestdefoe-longshot.provider_espn_enabled', '0');
+        $this->apiFootball();
 
         $report = $this->sync()->league($this->league('epl'));
 
@@ -231,6 +236,22 @@ class FeedTest extends TestCase
         $this->assertSame(['Liverpool', 'Manchester United'], [$event->away_name, $event->home_name]);
         $this->assertSame(['away', 'home', 'draw'], Selection::query()->where('market_id', Market::query()->where('event_id', $event->id)->where('type', Market::MONEYLINE)->value('id'))->orderBy('sort')->pluck('key')->all());
         $this->assertSame('test-key', $this->to('api-sports.io/fixtures')[0]->getHeaderLine('x-apisports-key'));
+        $this->assertCount(0, $this->to('site.api.espn.com'));
+    }
+
+    #[Test]
+    public function a_failing_provider_pauses_and_a_backup_adds_nothing(): void
+    {
+        $this->apiFootball();
+        $this->routes['soccer/eng.1/scoreboard'] = fn () => $this->reply('{}', 500);
+
+        $report = $this->sync()->league($this->league('epl'));
+
+        // The backup answered, but a backup only updates games already on the
+        // board: its names differ from ESPN's, and it would double them.
+        $this->assertSame('apifootball', $report['schedule']['provider']);
+        $this->assertSame(0, $report['schedule']['added']);
+        $this->assertSame(0, Event::query()->count());
 
         // ESPN failed every day it was asked: paused, and skipped next time.
         $status = $this->app()->getContainer()->make(\ErnestDefoe\Longshot\Feed\Budget::class)->status('espn');
@@ -488,6 +509,26 @@ class FeedTest extends TestCase
         ]);
 
         $this->assertSame(403, $this->send($this->request('POST', '/api/longshot/admin/sync', ['authenticatedAs' => 2]))->getStatusCode());
+    }
+
+    #[Test]
+    public function a_locked_game_keeps_its_prices(): void
+    {
+        $sync = $this->sync();
+        $sync->league($this->league('nfl'));
+        $event = Event::query()->where('external_id', '401873011')->firstOrFail();
+        $event->locked = true;
+        $event->save();
+        $home = Selection::query()->where('market_id', Market::query()->where('event_id', $event->id)->where('type', Market::MONEYLINE)->value('id'))->where('key', 'home')->firstOrFail();
+        $before = $home->odds;
+
+        $moved = json_decode(file_get_contents(__DIR__.'/../../fixtures/espn-nfl-20261025.json'), true);
+        $moved['events'][0]['competitions'][0]['odds'][0]['moneyline']['home']['close']['odds'] = '+900';
+        $this->routes['football/nfl/scoreboard'] = fn (RequestInterface $r) => str_contains($r->getUri()->getQuery(), 'dates=20261025') ? $this->reply(json_encode($moved)) : $this->reply('{"events":[]}');
+
+        $sync->league($this->league('nfl'), true);
+
+        $this->assertSame($before, Selection::query()->find($home->id)->odds);
     }
 }
 

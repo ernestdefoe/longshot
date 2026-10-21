@@ -154,7 +154,9 @@ class PicksBridge
 
         // A feed already brought this game in (the league was followed before
         // Picks played it): one copy on the board, settled by its own feed.
-        if ($this->db->table('longshot_events')->where('home_team_id', $homeTeam->id)->where('away_team_id', $awayTeam->id)
+        if ($this->db->table('longshot_events')
+            ->where(fn ($q) => $q->where(fn ($q) => $q->where('home_team_id', $homeTeam->id)->where('away_team_id', $awayTeam->id))
+                ->orWhere(fn ($q) => $q->where('home_team_id', $awayTeam->id)->where('away_team_id', $homeTeam->id)))
             ->whereBetween('starts_at', [$starts->copy()->subHours(6), $starts->copy()->addHours(6)])->exists()) {
             return false;
         }

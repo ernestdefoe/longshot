@@ -72,6 +72,13 @@ class Sync
         $byPicks = in_array($league->key, $this->picks->leagues(), true);
 
         try {
+            // Picks plays the league now, but feed games are still on the board:
+            // keep their kickoffs current (no new games added).
+            if ($byPicks && Event::query()->where('league_key', $league->key)->where('status', Event::OPEN)
+                ->whereNotIn('source', ['manual', 'picks'])->exists() && $this->due($league, 'near', 30, $force)) {
+                $report['schedule'] = $this->schedule($league, Carbon::now(), Carbon::now()->addDays(2), false);
+            }
+
             if (! $byPicks && $this->due($league, 'schedule', 360, $force)) {
                 $report['schedule'] = $this->schedule($league, Carbon::now()->subDay(), Carbon::now()->addDays($this->config->horizonDays()));
                 // The full sync covers the next two days as well.
@@ -109,13 +116,17 @@ class Sync
     }
 
     /** @return array<string, mixed>|null */
-    private function schedule(League $league, Carbon $from, Carbon $to): ?array
+    private function schedule(League $league, Carbon $from, Carbon $to, bool $add = true): ?array
     {
-        foreach ($this->providers->for(Schedules::class, $league) as $provider) {
+        foreach ($this->providers->for(Schedules::class, $league) as $i => $provider) {
             $games = $provider->games($league, $from, $to);
 
             if ($games !== null) {
-                return ['provider' => $provider->key()] + $this->importer->apply($league, $games);
+                // 🚨 Only the league's first provider adds games. A backup
+                // answering while it is down updates and settles the games it
+                // already knows, but adds none: its names differ ("Bayern
+                // München"), and a game it added would sit on the board twice.
+                return ['provider' => $provider->key()] + $this->importer->apply($league, $games, $add && $i === 0);
             }
         }
 
@@ -134,7 +145,7 @@ class Sync
         $done = [];
 
         $open = fn () => Event::query()->where('league_key', $league->key)->where('status', Event::OPEN)
-            ->where('starts_at', '>', $now)->where('starts_at', '<=', $now->copy()->addDays(7))
+            ->where('locked', false)->where('starts_at', '>', $now)->where('starts_at', '<=', $now->copy()->addDays(7))
             ->get()->filter(fn (Event $e) => ! $this->pricer->priced($e->id));
 
         foreach ($this->providers->for(Prices::class, $league) as $provider) {
@@ -259,6 +270,19 @@ class Sync
     {
         $settled = 0;
 
+        // Six tries an event (hourly), then it is left for staff or the
+        // auto-void: one stuck game must not spend a provider's whole quota.
+        $events = array_values(array_filter($events, function (Event $e) {
+            $key = 'longshot.fallback.'.$e->id;
+            $this->cache->add($key, 0, 86400 * 4);
+
+            return (int) $this->cache->increment($key) <= 6;
+        }));
+
+        if (! $events) {
+            return 0;
+        }
+
         foreach ($this->providers->for(Results::class, $league) as $provider) {
             $games = $provider->results($league, 3);
             if (! $games) {
@@ -267,7 +291,10 @@ class Sync
 
             foreach ($events as $event) {
                 $game = $this->match($event->fresh() ?? $event, $games, $league);
-                if ($game && $game->isFinal() && $event->fresh()?->status === Event::OPEN) {
+                if (! $game || ! $game->isFinal()) {
+                    continue;
+                }
+                if ($event->fresh()?->status === Event::OPEN) {
                     $this->importer->settle($event, $game);
                     $settled++;
                 }
@@ -288,7 +315,13 @@ class Sync
             foreach ((array) $teams as $side) {
                 // Only teams the book already has, matched exactly (by the
                 // provider's id, then name): a list is no reason to add teams.
-                if ($team = ($side->id ? $this->teams->byId($league->key, $provider->key(), $side->id) : null) ?? $this->teams->find($league->key, $side->name)) {
+                $team = $side->id ? $this->teams->byId($league->key, $provider->key(), $side->id) : null;
+                foreach ($team ? [] : array_merge([$side->name], $side->aliases) as $name) {
+                    if ($team = $this->teams->find($league->key, $name)) {
+                        break;
+                    }
+                }
+                if ($team) {
                     $this->teams->learn($team, $side, $provider->key());
                     $filled++;
                 }

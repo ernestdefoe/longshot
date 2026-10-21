@@ -78,8 +78,9 @@ class Importer
                     continue;
                 }
 
-                // Prices until kickoff, never after.
-                if ($game->prices && $event->starts_at->gt($now) && $game->status === Game::SCHEDULED) {
+                // Prices until kickoff, never after; and not on a locked game,
+                // whose sides staff may have corrected.
+                if ($game->prices && ! $event->locked && $event->starts_at->gt($now) && $game->status === Game::SCHEDULED) {
                     $done['priced'] += (int) ($this->pricer->apply($event->id, $game->prices, $game->bookmaker) > 0);
                 }
 
@@ -110,8 +111,10 @@ class Importer
         $home = ($game->home->id ? $this->teams->byId($league->key, $game->provider, $game->home->id) : null) ?? $this->teams->find($league->key, $game->home->name);
         $away = ($game->away->id ? $this->teams->byId($league->key, $game->provider, $game->away->id) : null) ?? $this->teams->find($league->key, $game->away->name);
 
+        // Either way round: a neutral-site game may be listed with sides swapped.
         return $home && $away && Event::query()
-            ->where('home_team_id', $home->id)->where('away_team_id', $away->id)
+            ->where(fn ($q) => $q->where(fn ($q) => $q->where('home_team_id', $home->id)->where('away_team_id', $away->id))
+                ->orWhere(fn ($q) => $q->where('home_team_id', $away->id)->where('away_team_id', $home->id)))
             ->whereBetween('starts_at', [$game->startsAt->copy()->subHours(6), $game->startsAt->copy()->addHours(6)])
             ->exists();
     }
@@ -119,7 +122,8 @@ class Importer
     /** Score a game between two sides from a provider's final. */
     public function settle(Event $event, Game $game): void
     {
-        if ($event->isMatchup() && $game->isFinal() && ! $event->locked) {
+        // Locked is read now, not from the copy loaded at the start of the run.
+        if ($event->isMatchup() && $game->isFinal() && ! $event->fresh()?->locked) {
             $this->settlement->score($event, (int) $game->homeScore, (int) $game->awayScore);
         }
     }
