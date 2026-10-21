@@ -72,13 +72,18 @@ class PicksBridge
         $added = 0;
 
         $this->db->table('picks_events')
-            ->join('picks_weeks', 'picks_weeks.id', '=', 'picks_events.week_id')
-            ->join('picks_seasons', 'picks_seasons.id', '=', 'picks_weeks.season_id')
+            ->leftJoin('picks_weeks', 'picks_weeks.id', '=', 'picks_events.week_id')
+            ->leftJoin('picks_seasons', 'picks_seasons.id', '=', 'picks_weeks.season_id')
             ->leftJoin('longshot_events', 'longshot_events.picks_event_id', '=', 'picks_events.id')
             ->whereNull('longshot_events.id')
             ->where('picks_events.status', 'scheduled')
             ->whereBetween('picks_events.match_date', [Carbon::now(), Carbon::now()->addDays($this->config->horizonDays())])
-            ->when($leagues, fn (Builder $q) => $q->whereIn('picks_seasons.league', $leagues))
+            // A game entered by hand in Picks may have no week, and so no
+            // season: Picks treats its league as the default one, and so do we.
+            ->when($leagues, fn (Builder $q) => $q->whereIn(
+                $this->db->raw('COALESCE('.$this->db->getQueryGrammar()->wrap('picks_seasons.league').", '".\Resofire\Picks\Service\Leagues\Leagues::DEFAULT."')"),
+                $leagues
+            ))
             ->orderBy('picks_events.id')
             ->select('picks_events.id', 'picks_events.match_date', 'picks_events.home_team_id', 'picks_events.away_team_id', 'picks_seasons.league')
             ->chunk(200, function ($rows) use ($registry, &$added) {
@@ -193,8 +198,9 @@ class PicksBridge
                 continue;
             }
 
-            // Under way (or locked by Picks) earlier than we thought: close it now.
-            if ($row->status !== 'scheduled' && $ours->gt($now)) {
+            // Under way (or locked by Picks) earlier than we thought: close it,
+            // at Picks' kickoff if that has passed, or now if Picks closed early.
+            if ($row->status !== 'scheduled' && $kickoff->gt($now)) {
                 $kickoff = $now;
             }
 

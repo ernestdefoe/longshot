@@ -137,7 +137,7 @@ class EventSaver
                 $this->fail('markets', 'custom_label');
             }
 
-            $market->save();
+            $market->isDirty() && $market->save();
             $kept[] = $market->id;
 
             $this->selections($market, array_values(array_filter((array) ($data['selections'] ?? []), 'is_array')), isset($used[$market->id]));
@@ -206,7 +206,8 @@ class EventSaver
                 $this->fail('markets', 'custom_label');
             }
 
-            $selection->save();
+            // Only what changed is written.
+            $selection->isDirty() && $selection->save();
             $kept[] = $selection->id;
         }
 

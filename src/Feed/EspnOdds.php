@@ -55,8 +55,8 @@ class EspnOdds
         // Open, not started, imported from Picks, with a feed-priced market left.
         $rows = $this->db->table('longshot_events')
             ->join('picks_events', 'picks_events.id', '=', 'longshot_events.picks_event_id')
-            ->join('picks_weeks', 'picks_weeks.id', '=', 'picks_events.week_id')
-            ->join('picks_seasons', 'picks_seasons.id', '=', 'picks_weeks.season_id')
+            ->leftJoin('picks_weeks', 'picks_weeks.id', '=', 'picks_events.week_id')
+            ->leftJoin('picks_seasons', 'picks_seasons.id', '=', 'picks_weeks.season_id')
             ->where('longshot_events.status', Event::OPEN)
             ->where('longshot_events.starts_at', '>', $now)
             ->whereExists(fn ($q) => $q->from('longshot_markets')
