@@ -225,8 +225,12 @@
   cursor: pointer;
   line-height: 1.25;
 
-  &:hover:not(:disabled) {
-    background: var(--control-bg-shaded);
+  // Real pointers only: a tap leaves :hover stuck on touch screens, which
+  // washed out a picked price on Android.
+  @media (hover: hover) {
+    &:hover:not(:disabled):not(.is-picked) {
+      background: var(--control-bg-shaded);
+    }
   }
 
   &:disabled {
@@ -614,6 +618,7 @@
   .Longshot-slip-body {
     display: none;
     overflow-y: auto;
+    padding-top: 0;
   }
 
   .Longshot-slip.is-open .Longshot-slip-body {
