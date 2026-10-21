@@ -95,7 +95,8 @@ return [
     // them. The model's own event, so every way of deleting a member counts
     // (Flarum's Deleting event fires for the API only).
     (new Extend\Event())
-        ->listen('eloquent.deleting: '.User::class, fn (User $user) => resolve(Settlement::class)->releaseMember($user)),
+        ->listen('eloquent.deleting: '.User::class, fn (User $user) => resolve(Settlement::class)->releaseMember($user))
+        ->listen(\Flarum\Settings\Event\Saved::class, \ErnestDefoe\Longshot\Listener\ProviderKeySaved::class),
 
     (new Extend\Settings())
         ->default('ernestdefoe-longshot.show_nav', true)

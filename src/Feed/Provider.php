@@ -45,6 +45,12 @@ abstract class Provider
         return 0;
     }
 
+    /** Minutes between price checks per league, for providers that sell prices. */
+    public function priceEvery(): int
+    {
+        return 30;
+    }
+
     public function covers(League $league): bool
     {
         return $league->id($this->key()) !== null;

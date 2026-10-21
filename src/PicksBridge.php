@@ -152,6 +152,13 @@ class PicksBridge
         $homeTeam = $this->teams->resolve($key, new \ErnestDefoe\Longshot\Feed\Side($home->name, $home->abbreviation, logo: $home->logo_url), 'picks');
         $awayTeam = $this->teams->resolve($key, new \ErnestDefoe\Longshot\Feed\Side($away->name, $away->abbreviation, logo: $away->logo_url), 'picks');
 
+        // A feed already brought this game in (the league was followed before
+        // Picks played it): one copy on the board, settled by its own feed.
+        if ($this->db->table('longshot_events')->where('home_team_id', $homeTeam->id)->where('away_team_id', $awayTeam->id)
+            ->whereBetween('starts_at', [$starts->copy()->subHours(6), $starts->copy()->addHours(6)])->exists()) {
+            return false;
+        }
+
         return $this->db->transaction(function () use ($picksId, $league, $key, $draw, $homeTeam, $awayTeam, $home, $away, $starts) {
             // Two imports at once: the unique picks_event_id lets one through.
             $id = $this->db->table('longshot_events')->insertOrIgnore([
@@ -242,6 +249,8 @@ class PicksBridge
         $rows = $this->db->table('longshot_events')
             ->join('picks_events', 'picks_events.id', '=', 'longshot_events.picks_event_id')
             ->where('longshot_events.status', Event::OPEN)
+            // Staff locked it: Picks moves and scores it no more.
+            ->where('longshot_events.locked', false)
             ->where(fn (Builder $q) => $q
                 ->whereColumn('picks_events.match_date', '!=', 'longshot_events.starts_at')
                 ->orWhere('picks_events.status', '!=', 'scheduled'))

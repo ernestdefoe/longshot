@@ -54,7 +54,20 @@ class Providers
 
     public function apiKey(string $key): string
     {
-        return trim((string) $this->setting($key, 'key'));
+        $own = trim((string) $this->setting($key, 'key'));
+
+        // CollegeFootballData: Picks' key when Longshot has none of its own.
+        if ($own === '' && $key === 'cfbd') {
+            return trim((string) $this->settings->get('ernestdefoe-picks.cfbd_api_key'));
+        }
+
+        return $own;
+    }
+
+    /** Whether the key in use is Picks' rather than Longshot's own. */
+    public function keyFromPicks(string $key): bool
+    {
+        return $key === 'cfbd' && trim((string) $this->setting($key, 'key')) === '' && $this->apiKey($key) !== '';
     }
 
     public function budget(string $key): int

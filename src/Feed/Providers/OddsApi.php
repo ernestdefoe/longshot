@@ -54,6 +54,11 @@ class OddsApi extends \ErnestDefoe\Longshot\Feed\Provider implements Prices, Res
         return 'https://the-odds-api.com/terms-and-conditions.html';
     }
 
+    public function priceEvery(): int
+    {
+        return 360;
+    }
+
     public function defaultBudget(): int
     {
         return 450;

@@ -244,4 +244,18 @@ class PicksTest extends TestCase
         $this->assertSame(-110, Selection::query()->where('key', 'over')->value('odds'));
         $this->assertFalse(Market::query()->where('type', Market::TOTAL)->firstOrFail()->feed);
     }
+
+    #[Test]
+    public function a_game_a_feed_already_imported_is_not_doubled_by_picks(): void
+    {
+        $this->app();
+        $teams = $this->app()->getContainer()->make(\ErnestDefoe\Longshot\Feed\Teams::class);
+        $home = $teams->resolve('nfl', new \ErnestDefoe\Longshot\Feed\Side('Pittsburgh Steelers'), 'espn');
+        $away = $teams->resolve('nfl', new \ErnestDefoe\Longshot\Feed\Side('Cleveland Browns'), 'espn');
+        $feed = $this->game(['home' => 'Pittsburgh Steelers', 'away' => 'Cleveland Browns', 'starts_at' => Carbon::now()->addDay()->startOfHour()->addMinutes(30)]);
+        Event::query()->whereKey($feed['event'])->update(['source' => 'espn', 'external_id' => '999', 'home_team_id' => $home->id, 'away_team_id' => $away->id, 'league_key' => 'nfl']);
+
+        $this->assertSame(0, $this->bridge()->import());
+        $this->assertSame(1, Event::query()->count());
+    }
 }

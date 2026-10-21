@@ -19,6 +19,7 @@ use Flarum\Database\AbstractModel;
  * @property array<string, string>|null $external_ids
  * @property bool        $locked
  * @property Carbon|null $branded_at
+ * @property Carbon|null $logo_failed_at
  */
 class Team extends AbstractModel
 {
@@ -31,5 +32,6 @@ class Team extends AbstractModel
         'external_ids' => 'array',
         'locked' => 'boolean',
         'branded_at' => 'datetime',
+        'logo_failed_at' => 'datetime',
     ];
 }

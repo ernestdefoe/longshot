@@ -53,7 +53,7 @@ class AdminToolsController implements RequestHandlerInterface
 
         return match (true) {
             str_ends_with($route, 'grants') => $this->grant($actor, $body),
-            str_ends_with($route, 'sync') => $this->sync(),
+            str_ends_with($route, 'sync') => $this->sync($actor),
             $request->getMethod() === 'POST' => $this->saveLimits($actor, $body),
             default => $this->limits(),
         };
@@ -147,8 +147,14 @@ class AdminToolsController implements RequestHandlerInterface
         return new JsonResponse(['data' => ['user' => $user->id, 'balance' => $this->bank->balance($user)]]);
     }
 
-    private function sync(): ResponseInterface
+    private function sync(User $actor): ResponseInterface
     {
+        // Admins only: it can spend providers' quotas.
+        $actor->assertAdmin();
+
+        // Every provider call in this request stops at 25 seconds.
+        \ErnestDefoe\Longshot\Feed\Http::$deadline = microtime(true) + 25;
+
         // One at a time, and not more than once a minute: it calls ESPN.
         if (! $this->cache->add('longshot.admin-sync', 1, 60)) {
             throw new ValidationException(['sync' => $this->translator->trans('ernestdefoe-longshot.api.admin.slow_down')]);
@@ -161,7 +167,7 @@ class AdminToolsController implements RequestHandlerInterface
 
         $leagues = [];
         foreach ($this->sync->leaguesToSync() as $league) {
-            if (microtime(true) - $began > 25) {
+            if (microtime(true) - $began > 22) {
                 $leagues[] = ['league' => $league->key, 'skipped' => true];
                 continue;
             }

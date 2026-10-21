@@ -19,6 +19,7 @@ return Migration::createTable('longshot_teams', function (Blueprint $table) {
     $table->string('alt_color', 7)->nullable();
     $table->string('logo_path', 190)->nullable();
     $table->string('logo_source', 255)->nullable();
+    $table->dateTime('logo_failed_at')->nullable();
     $table->text('aliases')->nullable();
     $table->text('external_ids')->nullable();
     $table->boolean('locked')->default(false);

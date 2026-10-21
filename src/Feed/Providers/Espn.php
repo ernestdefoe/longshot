@@ -141,8 +141,8 @@ class Espn extends Provider implements Schedules, Branding
             id: (string) $event['id'],
             league: $league->key,
             startsAt: Carbon::parse((string) $event['date'])->utc(),
-            home: $this->side($sides['home']),
-            away: $this->side($sides['away']),
+            home: $this->side($sides['home'], $league),
+            away: $this->side($sides['away'], $league),
             status: $status,
             homeScore: $status === Game::FINAL ? $this->score($sides['home'], $league) : null,
             awayScore: $status === Game::FINAL ? $this->score($sides['away'], $league) : null,
@@ -152,7 +152,7 @@ class Espn extends Provider implements Schedules, Branding
     }
 
     /** @param array<string, mixed> $side */
-    private function side(array $side): Side
+    private function side(array $side, League $league): Side
     {
         $team = (array) ($side['team'] ?? []);
 
@@ -163,7 +163,24 @@ class Espn extends Provider implements Schedules, Branding
             altColor: Side::color($team['alternateColor'] ?? null),
             logo: is_string($team['logo'] ?? null) ? $team['logo'] : null,
             id: isset($team['id']) ? (string) $team['id'] : null,
+            aliases: self::aliases($team, $league),
         );
+    }
+
+    /**
+     * ESPN's own other names for a team: "Texas Tech" (its location, which is
+     * what CollegeFootballData calls it) and "Red Raiders", both ESPN's.
+     *
+     * @param array<string, mixed> $team
+     * @return list<string>
+     */
+    public static function aliases(array $team, League $league): array
+    {
+        // A city is a school's name in college sports, but two pro teams can
+        // share one (New York, Los Angeles): college only.
+        $keys = in_array($league->key, ['ncaaf', 'ncaab'], true) ? ['shortDisplayName', 'location'] : ['shortDisplayName'];
+
+        return array_values(array_filter(array_map(fn ($k) => is_string($team[$k] ?? null) ? $team[$k] : null, $keys)));
     }
 
     /** @param array<string, array<string, mixed>> $sides */
@@ -208,7 +225,7 @@ class Espn extends Provider implements Schedules, Branding
                 }
             }
 
-            $out[] = new Side((string) $team['displayName'], $team['abbreviation'] ?? null, Side::color($team['color'] ?? null), Side::color($team['alternateColor'] ?? null), $logo, isset($team['id']) ? (string) $team['id'] : null);
+            $out[] = new Side((string) $team['displayName'], $team['abbreviation'] ?? null, Side::color($team['color'] ?? null), Side::color($team['alternateColor'] ?? null), $logo, isset($team['id']) ? (string) $team['id'] : null, self::aliases($team, $league));
         }
 
         return $out;

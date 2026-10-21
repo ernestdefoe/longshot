@@ -149,7 +149,9 @@ class FeedTest extends TestCase
         $this->assertSame(0, Selection::query()->where('market_id', $ml->id)->whereNull('odds')->count());
         $this->assertStringContainsString('(via ESPN)', (string) $ml->odds_provider);
 
-        // Teams with colours; logos fetched once from ESPN's CDN and stored as our own WebP.
+        // Teams with colours; logos fetched once from ESPN's CDN (by the
+        // scheduled run, a few at a time) and stored as our own WebP.
+        $this->assertSame(6, $this->app()->getContainer()->make(Logos::class)->cacheTeams());
         $saints = Team::query()->findOrFail($event->home_team_id);
         $this->assertSame('#d3bc8d', $saints->color);
         $this->assertNotNull($saints->logo_path);
@@ -343,6 +345,149 @@ class FeedTest extends TestCase
 
         $this->assertSame([], $this->requests);
         $this->assertTrue(Logos::allowed('https://a.espncdn.com/i/teamlogos/nfl/500/no.png'));
+    }
+
+    #[Test]
+    public function texas_and_texas_tech_stay_two_teams(): void
+    {
+        $this->app();
+        $teams = $this->app()->getContainer()->make(\ErnestDefoe\Longshot\Feed\Teams::class);
+        $texas = $teams->resolve('ncaaf', new \ErnestDefoe\Longshot\Feed\Side('Texas Longhorns', 'TEX', id: '251', aliases: ['Longhorns', 'Texas']), 'espn');
+        $tech = $teams->resolve('ncaaf', new \ErnestDefoe\Longshot\Feed\Side('Texas Tech Red Raiders', 'TTU', id: '2641', aliases: ['Red Raiders', 'Texas Tech']), 'espn');
+        $north = $teams->resolve('ncaaf', new \ErnestDefoe\Longshot\Feed\Side('North Texas Mean Green', 'UNT', id: '249'), 'espn');
+
+        $this->assertNotSame($texas->id, $tech->id);
+        $this->assertNotSame($texas->id, $north->id);
+        // CFBD's names find the right ones, exactly.
+        $this->assertSame($tech->id, $teams->find('ncaaf', 'Texas Tech')?->id);
+        $this->assertSame($texas->id, $teams->find('ncaaf', 'Texas')?->id);
+        $this->assertNull($teams->find('ncaaf', 'Tech'));
+        // ESPN's id wins over a name, and a name another team owns is never learned.
+        $this->assertSame($texas->id, $teams->resolve('ncaaf', new \ErnestDefoe\Longshot\Feed\Side('Texas Tech', id: '251'), 'espn')->id);
+        $this->assertNotContains('texas tech', (array) Team::query()->find($texas->id)->aliases);
+    }
+
+    #[Test]
+    public function a_locked_game_is_not_settled_by_the_feed(): void
+    {
+        $this->sync()->league($this->league('nfl'));
+        $event = Event::query()->where('external_id', '401873011')->firstOrFail();
+        $event->locked = true;
+        $event->save();
+
+        Carbon::setTestNow(Carbon::parse('2026-10-25 20:00:00', 'UTC'));
+        $final = json_decode(file_get_contents(__DIR__.'/../../fixtures/espn-nfl-20261025.json'), true);
+        foreach ($final['events'] as &$e) {
+            $e['competitions'][0]['status']['type'] = ['name' => 'STATUS_FINAL', 'state' => 'post', 'completed' => true];
+        }
+        $this->routes['football/nfl/scoreboard'] = fn () => $this->reply(json_encode($final));
+
+        $this->sync()->results();
+        $this->settlement()->sweep();
+
+        $this->assertSame(Event::OPEN, Event::query()->find($event->id)->status);
+    }
+
+    #[Test]
+    public function a_postponed_game_is_not_asked_about_every_five_minutes(): void
+    {
+        $this->sync()->league($this->league('nfl'));
+        Carbon::setTestNow(Carbon::parse('2026-10-25 20:00:00', 'UTC'));
+        $off = json_decode(file_get_contents(__DIR__.'/../../fixtures/espn-nfl-20261025.json'), true);
+        foreach ($off['events'] as &$e) {
+            $e['competitions'][0]['status']['type'] = ['name' => 'STATUS_POSTPONED', 'state' => 'post', 'completed' => true];
+        }
+        $this->routes['football/nfl/scoreboard'] = fn () => $this->reply(json_encode($off));
+
+        $this->sync()->results();
+        $before = count($this->to('football/nfl/scoreboard'));
+        $this->assertSame(1, $before - 9 - 1, 'one call: only the day with games due');
+
+        Carbon::setTestNow(Carbon::parse('2026-10-25 20:10:00', 'UTC'));
+        $this->sync()->results();
+        $this->assertSame($before, count($this->to('football/nfl/scoreboard')), 'postponed games are left alone for hours');
+    }
+
+    #[Test]
+    public function the_odds_api_is_asked_at_most_every_six_hours_per_league(): void
+    {
+        $this->setting('ernestdefoe-longshot.provider_oddsapi_key', 'k');
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../fixtures/espn-nfl-20261025.json'), true);
+        foreach ($fixture['events'] as &$e) {
+            unset($e['competitions'][0]['odds']);
+        }
+        $this->routes['football/nfl/scoreboard'] = fn (RequestInterface $r) => str_contains($r->getUri()->getQuery(), 'dates=20261025') ? $this->reply(json_encode($fixture)) : $this->reply('{"events":[]}');
+        $this->routes['the-odds-api.com'] = fn () => $this->reply('[]');
+
+        $sync = $this->sync();
+        $sync->league($this->league('nfl'));
+        $sync->league($this->league('nfl'), true);
+        Carbon::setTestNow(Carbon::parse('2026-10-21 17:00:00', 'UTC'));
+        $sync->league($this->league('nfl'));
+
+        $this->assertCount(1, $this->to('the-odds-api.com'), 'not forced by "sync now", not again within 6 hours');
+    }
+
+    #[Test]
+    public function an_image_bomb_is_refused_before_it_is_decoded(): void
+    {
+        $this->internet();
+        // A tiny file whose header claims 30000 x 30000 pixels.
+        $img = imagecreatetruecolor(30000, 1);
+        ob_start();
+        imagepng($img);
+        $bomb = (string) ob_get_clean();
+        $this->routes['espncdn.com'] = fn () => new Response(200, [], $bomb);
+
+        $team = new Team();
+        $team->league_key = 'nfl';
+        $team->name = 'Bombers';
+        $team->name_key = 'bombers';
+        $team->logo_source = 'https://a.espncdn.com/bomb.png';
+        $team->locked = false;
+        $team->save();
+
+        $logos = $this->app()->getContainer()->make(Logos::class);
+        $this->assertSame(0, $logos->cacheTeams());
+        $this->assertNotNull(Team::query()->find($team->id)->logo_failed_at);
+        $this->assertNull(Team::query()->find($team->id)->logo_path);
+
+        // Not tried again this week.
+        $this->assertSame(0, $logos->cacheTeams());
+        $this->assertCount(1, $this->to('espncdn.com'));
+    }
+
+    #[Test]
+    public function an_api_error_inside_a_200_is_a_failure_and_a_new_key_lifts_the_pause(): void
+    {
+        $this->setting('ernestdefoe-longshot.provider_apifootball_key', 'k');
+        $this->internet();
+        $this->routes['api-sports.io'] = fn () => $this->reply('{"errors":{"token":"Error/Missing application key."},"response":[]}');
+        $http = $this->app()->getContainer()->make(\ErnestDefoe\Longshot\Feed\Http::class);
+        $budget = $this->app()->getContainer()->make(\ErnestDefoe\Longshot\Feed\Budget::class);
+
+        $this->assertNull($http->json('apifootball', 'https://v3.football.api-sports.io/status'));
+        $this->assertNotNull($budget->status('apifootball')['paused']);
+        $this->assertStringContainsString('application key', $budget->status('apifootball')['error']['message']);
+
+        $this->send($this->request('POST', '/api/settings', ['authenticatedAs' => 1, 'json' => ['ernestdefoe-longshot.provider_apifootball_key' => 'new']]));
+        $this->assertNull($budget->status('apifootball')['paused']);
+    }
+
+    #[Test]
+    public function errors_never_keep_a_key(): void
+    {
+        $this->assertSame('cURL error 28: timed out for https://api.the-odds-api.com/v4/sports/x/odds?…', \ErnestDefoe\Longshot\Feed\Http::scrub('cURL error 28: timed out for https://api.the-odds-api.com/v4/sports/x/odds?apiKey=SECRET&regions=us'));
+    }
+
+    #[Test]
+    public function only_admins_may_sync_now(): void
+    {
+        $this->prepareDatabase([
+            'group_permission' => [['group_id' => 3, 'permission' => 'longshot.manage']],
+        ]);
+
+        $this->assertSame(403, $this->send($this->request('POST', '/api/longshot/admin/sync', ['authenticatedAs' => 2]))->getStatusCode());
     }
 }
 

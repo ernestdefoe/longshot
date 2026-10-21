@@ -81,9 +81,7 @@ class Sync
                 $report['schedule'] = $this->schedule($league, Carbon::now(), Carbon::now()->addDays(2));
             }
 
-            if ($this->due($league, 'prices', 30, $force)) {
-                $report['prices'] = $this->prices($league);
-            }
+            $report['prices'] = $this->prices($league, $force);
 
             if ($this->due($league, 'branding', 60 * 24 * 7, $force)) {
                 $report['branding'] = $this->brand($league);
@@ -130,7 +128,7 @@ class Sync
      *
      * @return array<string, int>
      */
-    private function prices(League $league): array
+    private function prices(League $league, bool $force = false): array
     {
         $now = Carbon::now();
         $done = [];
@@ -140,6 +138,13 @@ class Sync
             ->get()->filter(fn (Event $e) => ! $this->pricer->priced($e->id));
 
         foreach ($this->providers->for(Prices::class, $league) as $provider) {
+            // Each on its own clock (The Odds API every 6 hours, CFBD daily…):
+            // a paid budget lasts the month. Staff's "sync now" never forces a
+            // provider that spends a key's quota.
+            if (! $this->due($league, 'prices-'.$provider->key(), $provider->priceEvery(), $force && ! $provider->needsKey())) {
+                continue;
+            }
+
             $waiting = $open();
             if ($waiting->isEmpty()) {
                 break;
@@ -181,8 +186,8 @@ class Sync
                 continue;
             }
 
-            $home = $this->teams->find($league->key, $game->home->name);
-            $away = $this->teams->find($league->key, $game->away->name);
+            $home = ($game->home->id ? $this->teams->byId($league->key, $game->provider, $game->home->id) : null) ?? $this->teams->find($league->key, $game->home->name);
+            $away = ($game->away->id ? $this->teams->byId($league->key, $game->provider, $game->away->id) : null) ?? $this->teams->find($league->key, $game->away->name);
 
             if ($home && $away && $home->id === $event->home_team_id && $away->id === $event->away_team_id) {
                 return $game;
@@ -205,35 +210,41 @@ class Sync
         $now = Carbon::now();
 
         foreach ($this->followed() as $league) {
-            if (in_array($league->key, $this->picks->leagues(), true)) {
-                continue;
-            }
-
+            // Picks' own games are settled from Picks; feed games are settled
+            // here whoever plays the league now. Locked games are staff's.
             $due = Event::query()->where('league_key', $league->key)->where('status', Event::OPEN)
-                ->where('source', '!=', 'manual')->where('starts_at', '<=', $now)
-                ->where('starts_at', '>', $now->copy()->subDays(4))
-                ->orderBy('starts_at')->get();
+                ->whereNotIn('source', ['manual', 'picks'])->where('locked', false)
+                ->where('starts_at', '<=', $now)->where('starts_at', '>', $now->copy()->subDays(4))
+                ->orderBy('starts_at')->get()
+                // Postponed or cancelled: not asked about again for six hours.
+                ->reject(fn (Event $e) => $this->cache->has('longshot.off.'.$e->id));
 
             if ($due->isEmpty() || ! $this->due($league, 'results', 5, $force)) {
                 continue;
             }
 
             try {
-                // Each game's result comes from the provider it came from.
-                $from = $due->min('starts_at')->copy()->subDay();
-                foreach ($due->pluck('source')->unique() as $source) {
+                // Each game's result from the provider it came from, asking
+                // only about the days that have a game due one.
+                foreach ($due->groupBy('source') as $source => $events) {
                     $provider = $this->providers->get((string) $source);
-                    if ($provider instanceof Schedules && $this->providers->usable($provider->key())) {
-                        $games = $provider->games($league, $from, $now);
+                    if (! $provider instanceof Schedules || ! $this->providers->usable($provider->key())) {
+                        continue;
+                    }
+
+                    $days = $events->map(fn (Event $e) => $e->starts_at->copy()->setTimezone('America/New_York')->format('Y-m-d'))->unique()->take(4);
+                    foreach ($days as $day) {
+                        $from = Carbon::parse($day.' 00:00', 'America/New_York')->utc();
+                        $games = $provider->games($league, $from, $from->copy()->addHours(23));
                         $settled += (int) ($games === null ? 0 : $this->importer->apply($league, $games, false)['settled']);
                     }
                 }
 
-                // Games ending hours ago with no score yet: the results-only
-                // providers, at most hourly (they cost credits).
-                $stale = $due->filter(fn (Event $e) => $e->starts_at->lt($now->copy()->subHours(5)));
-                if ($stale->isNotEmpty() && $this->due($league, 'results-fallback', 60, $force)) {
-                    $settled += $this->fallbackResults($league, $stale->all());
+                // Games ending hours ago with no score yet (soccer after extra
+                // time, a feed gone quiet): the results providers, hourly.
+                $stale = $due->filter(fn (Event $e) => $e->starts_at->lt($now->copy()->subHours(5)) && $e->fresh()?->status === Event::OPEN);
+                if ($stale->isNotEmpty() && $this->due($league, 'results-fallback', 60, false)) {
+                    $settled += $this->fallbackResults($league, $stale->values()->all());
                 }
             } catch (Throwable $e) {
                 $this->log->error('[longshot] results for '.$league->key.' failed: '.$e->getMessage());
@@ -275,8 +286,9 @@ class Sync
         foreach ($this->providers->for(Branding::class, $league) as $provider) {
             $teams = $provider->teams($league);
             foreach ((array) $teams as $side) {
-                // Only teams the book already has: a provider's list is not a reason to add teams.
-                if ($team = $this->teams->find($league->key, $side->name, $side->abbreviation)) {
+                // Only teams the book already has, matched exactly (by the
+                // provider's id, then name): a list is no reason to add teams.
+                if ($team = ($side->id ? $this->teams->byId($league->key, $provider->key(), $side->id) : null) ?? $this->teams->find($league->key, $side->name)) {
                     $this->teams->learn($team, $side, $provider->key());
                     $filled++;
                 }
@@ -285,6 +297,7 @@ class Sync
             $badge ??= $provider->badge($league);
         }
 
-        return ['teams' => $filled, 'logos' => $this->logos->cacheTeams(), 'badge' => $this->logos->badge($league->key, $badge)];
+        // Logos themselves are fetched by the scheduled run, a few at a time.
+        return ['teams' => $filled, 'badge' => $this->logos->badge($league->key, $badge)];
     }
 }

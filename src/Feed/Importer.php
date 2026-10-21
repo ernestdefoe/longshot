@@ -31,6 +31,7 @@ class Importer
         private Pricer $pricer,
         private Logos $logos,
         private Settlement $settlement,
+        private \Illuminate\Contracts\Cache\Repository $cache,
     ) {
     }
 
@@ -82,9 +83,15 @@ class Importer
                     $done['priced'] += (int) ($this->pricer->apply($event->id, $game->prices, $game->bookmaker) > 0);
                 }
 
-                // A final score settles it, once it has started (and even when locked:
-                // locking stops the sync moving a game, not paying it).
-                if ($game->isFinal() && $event->starts_at->lte($now)) {
+                // Postponed or cancelled: stop asking about it for six hours.
+                if ($game->status === Game::OFF) {
+                    $this->cache->put('longshot.off.'.$event->id, 1, 6 * 3600);
+                }
+
+                // A final score settles it once it has started. 🚨 Not a locked
+                // one: staff may have corrected its sides, and the feed's home
+                // score would be paid to the wrong team. Staff score those.
+                if ($game->isFinal() && $event->starts_at->lte($now) && ! $event->locked) {
                     $this->settle($event, $game);
                     $done['settled']++;
                 }
@@ -100,8 +107,8 @@ class Importer
      */
     private function duplicate(League $league, Game $game): bool
     {
-        $home = $this->teams->find($league->key, $game->home->name, $game->home->abbreviation);
-        $away = $this->teams->find($league->key, $game->away->name, $game->away->abbreviation);
+        $home = ($game->home->id ? $this->teams->byId($league->key, $game->provider, $game->home->id) : null) ?? $this->teams->find($league->key, $game->home->name);
+        $away = ($game->away->id ? $this->teams->byId($league->key, $game->provider, $game->away->id) : null) ?? $this->teams->find($league->key, $game->away->name);
 
         return $home && $away && Event::query()
             ->where('home_team_id', $home->id)->where('away_team_id', $away->id)
@@ -112,7 +119,7 @@ class Importer
     /** Score a game between two sides from a provider's final. */
     public function settle(Event $event, Game $game): void
     {
-        if ($event->isMatchup() && $game->isFinal()) {
+        if ($event->isMatchup() && $game->isFinal() && ! $event->locked) {
             $this->settlement->score($event, (int) $game->homeScore, (int) $game->awayScore);
         }
     }

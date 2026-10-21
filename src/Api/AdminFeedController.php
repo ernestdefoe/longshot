@@ -86,12 +86,12 @@ class AdminFeedController implements RequestHandlerInterface
                 ])),
                 'leagues' => array_values(array_map(fn ($l) => $l->name, array_filter($this->leagues->all(), fn ($l) => $provider->covers($l)))),
                 'needsKey' => $provider->needsKey(),
-                'hasKey' => $this->providers->apiKey($key) !== '' || ($provider instanceof Cfbd && $provider->apiKey() !== ''),
-                'keyFromPicks' => $provider instanceof Cfbd && $this->providers->apiKey($key) === '' && $provider->apiKey() !== '',
+                'hasKey' => $this->providers->apiKey($key) !== '',
+                'keyFromPicks' => $this->providers->keyFromPicks($key),
                 'keyUrl' => $provider->keyUrl(),
                 'termsUrl' => $provider->termsUrl(),
                 'enabled' => ($this->providers->setting($key, 'enabled') ?? '1') !== '0',
-                'usable' => $this->providers->usable($key) || ($provider instanceof Cfbd && $provider->apiKey() !== ''),
+                'usable' => $this->providers->usable($key),
                 'defaultBudget' => $provider->defaultBudget(),
                 'perMinute' => $provider->perMinute(),
             ] + $this->budget->status($key);
@@ -113,7 +113,7 @@ class AdminFeedController implements RequestHandlerInterface
         }
 
         [$url, $cost] = self::TESTS[$key];
-        $apiKey = $provider instanceof Cfbd ? $provider->apiKey() : $this->providers->apiKey($key);
+        $apiKey = $this->providers->apiKey($key);
         $sportsDbKey = preg_match('/^\d{1,20}$/', $apiKey) ? $apiKey : '123';
         $url = str_replace('{key}', $sportsDbKey, $url);
 
@@ -158,6 +158,17 @@ class AdminFeedController implements RequestHandlerInterface
             $fail('team_name');
         }
 
+        // A new name is matched from now on, and the old one still is.
+        $key = mb_substr(\ErnestDefoe\Longshot\Feed\Side::key($name), 0, 100);
+        if ($key !== $team->name_key) {
+            $taken = Team::query()->where('league_key', $team->league_key)->where('id', '!=', $team->id)->where('name_key', $key)->exists();
+            if ($taken || $key === '') {
+                $fail('team_name');
+            }
+            $team->aliases = array_values(array_unique(array_merge((array) $team->aliases, [$team->name_key])));
+            $team->name_key = $key;
+        }
+
         foreach (['color' => 'color', 'altColor' => 'alt_color'] as $in => $column) {
             if (array_key_exists($in, $body)) {
                 $value = $body[$in] === null || $body[$in] === '' ? null : \ErnestDefoe\Longshot\Feed\Side::color($body[$in]);
@@ -170,13 +181,16 @@ class AdminFeedController implements RequestHandlerInterface
 
         if (array_key_exists('logo', $body)) {
             $logo = trim((string) $body['logo']);
-            if ($logo !== '' && ! Logos::allowed($logo)) {
+            if ($logo !== '' && (strlen($logo) > 255 || ! Logos::allowed($logo))) {
                 $fail('team_logo');
             }
             // A new source is fetched by the next sync (or now, below).
             if ($logo !== (string) $team->logo_source) {
+                // The old copy goes once it is no longer the team's.
+                $this->logos->forget($team->logo_path);
                 $team->logo_source = $logo === '' ? null : $logo;
                 $team->logo_path = null;
+                $team->logo_failed_at = null;
             }
         }
 
@@ -186,7 +200,6 @@ class AdminFeedController implements RequestHandlerInterface
         $team->save();
 
         if ($team->logo_source && ! $team->logo_path) {
-            $this->cache->forget('longshot.logo-failed.'.$team->id);
             $this->logos->cacheTeam($team);
         }
 

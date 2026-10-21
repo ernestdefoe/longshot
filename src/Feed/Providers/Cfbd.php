@@ -13,7 +13,6 @@ use ErnestDefoe\Longshot\Feed\Side;
 use ErnestDefoe\Longshot\Grader as Lines;
 use ErnestDefoe\Longshot\Model\Market;
 use ErnestDefoe\Longshot\Odds;
-use Flarum\Settings\SettingsRepositoryInterface;
 
 /**
  * CollegeFootballData's betting lines, for college football when ESPN has
@@ -28,7 +27,7 @@ class Cfbd extends Provider implements Prices
 {
     public const BASE = 'https://api.collegefootballdata.com/';
 
-    public function __construct(private Http $http, private Registry $providers, private SettingsRepositoryInterface $settings)
+    public function __construct(private Http $http, private Registry $providers)
     {
     }
 
@@ -52,6 +51,11 @@ class Cfbd extends Provider implements Prices
         return 'https://collegefootballdata.com/terms';
     }
 
+    public function priceEvery(): int
+    {
+        return 1440;
+    }
+
     public function defaultBudget(): int
     {
         return 60;
@@ -64,9 +68,7 @@ class Cfbd extends Provider implements Prices
 
     public function apiKey(): string
     {
-        $own = $this->providers->apiKey('cfbd');
-
-        return $own !== '' ? $own : trim((string) $this->settings->get('ernestdefoe-picks.cfbd_api_key'));
+        return $this->providers->apiKey('cfbd');
     }
 
     public function prices(League $league, Carbon $from, Carbon $to): ?array

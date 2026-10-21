@@ -19,7 +19,7 @@ use ErnestDefoe\Longshot\Model\Market;
  * (so knockout games settle correctly after extra time), team crests, and
  * Bet365's prices. 100 requests a day on the free plan.
  */
-class ApiFootball extends Provider implements Schedules, Prices
+class ApiFootball extends Provider implements Schedules, Prices, \ErnestDefoe\Longshot\Feed\Results
 {
     public const BASE = 'https://v3.football.api-sports.io/';
 
@@ -48,6 +48,11 @@ class ApiFootball extends Provider implements Schedules, Prices
     public function termsUrl(): ?string
     {
         return 'https://www.api-football.com/terms';
+    }
+
+    public function priceEvery(): int
+    {
+        return 180;
     }
 
     public function defaultBudget(): int
@@ -96,6 +101,14 @@ class ApiFootball extends Provider implements Schedules, Prices
         }
 
         return $games;
+    }
+
+    /** Finished games of the last few days, on 90-minute scores (ESPN's soccer fallback). */
+    public function results(League $league, int $days): ?array
+    {
+        $games = $this->games($league, Carbon::now()->subDays(max(1, min(3, $days))), Carbon::now());
+
+        return $games === null ? null : array_values(array_filter($games, fn (Game $g) => $g->isFinal()));
     }
 
     /** @param array<string, mixed> $row */

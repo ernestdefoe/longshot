@@ -26,13 +26,15 @@ class Logos
 
     public const SIZE = 96;
 
+    /** Larger than any real logo; a "2 MB PNG" claiming 20000px is a decompression bomb. */
+    public const MAX_PIXELS = 2048;
+
     public function __construct(
         private Http $http,
         private ImageManager $images,
         private Factory $disks,
         private ConnectionInterface $db,
         private LoggerInterface $log,
-        private \Illuminate\Contracts\Cache\Repository $cache,
     ) {
     }
 
@@ -72,6 +74,13 @@ class Logos
             return null;
         }
 
+        // Dimensions from the header, before anything is decoded.
+        $size = @getimagesizefromstring($bytes);
+        if (! $size || $size[0] < 1 || $size[1] < 1 || $size[0] > self::MAX_PIXELS || $size[1] > self::MAX_PIXELS
+            || ! in_array($size[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_WEBP, IMAGETYPE_GIF], true)) {
+            return null;
+        }
+
         try {
             $image = $this->images->read($bytes)->scaleDown(self::SIZE, self::SIZE);
             $path = 'longshot/'.$name.'-'.substr(sha1($source), 0, 10).'.webp';
@@ -93,14 +102,15 @@ class Logos
     {
         $done = 0;
 
-        // A logo source set (by a provider or staff) and nothing cached for it yet.
+        // A logo source set (by a provider or staff), nothing cached for it
+        // yet, and no failure this week: failures are recorded in the row,
+        // so a dead or hostile image never holds up the ones behind it.
         $teams = Team::query()->whereNotNull('logo_source')->whereNull('logo_path')
-            ->orderBy('id')->limit($limit * 2)->get();
+            ->where(fn ($q) => $q->whereNull('logo_failed_at')->orWhere('logo_failed_at', '<', Carbon::now()->subWeek()))
+            ->orderBy('id')->limit($limit)->get();
 
         foreach ($teams as $team) {
-            if ($done < $limit && $this->cacheTeam($team)) {
-                $done++;
-            }
+            $done += (int) $this->cacheTeam($team);
         }
 
         return $done;
@@ -108,21 +118,24 @@ class Logos
 
     public function cacheTeam(Team $team): bool
     {
-        // Not again for a week after a failure: a dead link is not retried every run.
-        if (! $team->logo_source || $this->cache->has('longshot.logo-failed.'.$team->id)) {
+        if (! $team->logo_source) {
             return false;
         }
+
+        // Marked failed BEFORE the download: if decoding kills the process,
+        // the next run skips this image instead of dying on it again.
+        $team->logo_failed_at = Carbon::now();
+        $team->save();
 
         $path = $this->store($team->logo_source, 'team-'.$team->id);
 
         if (! $path) {
-            $this->cache->put('longshot.logo-failed.'.$team->id, 1, 86400 * 7);
-
             return false;
         }
 
-        $old = $team->getOriginal('logo_path');
+        $old = $team->logo_path;
         $team->logo_path = $path;
+        $team->logo_failed_at = null;
         $team->save();
 
         if ($old && $old !== $path) {
@@ -132,6 +145,14 @@ class Logos
         $this->point($team);
 
         return true;
+    }
+
+    /** Remove a cached file that is no longer used. */
+    public function forget(?string $path): void
+    {
+        if ($path) {
+            $this->disk()->delete($path);
+        }
     }
 
     /** Point open events at a team's cached logo (one update per side). */

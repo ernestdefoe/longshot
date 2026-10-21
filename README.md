@@ -27,7 +27,7 @@ A sportsbook for Flarum 2 where members bet **virtual points** on real games, on
   - voids a game that never finishes (postponed, cancelled) after a wait you choose, returning every stake;
   - brands teams with their logos and colours, and leagues with their badges. Logos are downloaded once, resized and served from your forum, never hotlinked.
 - **Games from [Picks](https://github.com/ernestdefoe/picks)**, when it is installed: the leagues it plays are taken from Picks (its own fixtures and final scores), so Longshot and your pick'em never disagree about a result.
-- **Your word is final.** Lock an event and no sync touches its sides, kickoff or status. Hide one and it stays gone. Take a market off the feed and price it yourself. Edit a team's name, colours or logo and it stays that way.
+- **Your word is final.** Lock an event and no sync touches its sides, kickoff or status, nor settles it (you enter its score). Hide one and it stays gone. Take a market off the feed and price it yourself. Edit a team's name, colours or logo and it stays that way.
 - **Events by hand** for any sport, or anything else: a game between two sides, or a titled event with custom markets.
 - **Results**: enter a final score and every moneyline, spread and total is graded; name the winner of a custom market; void anything to return every stake.
 - **Limits**: smallest and largest stake, a daily staking limit, the largest return on one bet, and per-group overrides (the most generous group wins).
@@ -37,7 +37,7 @@ A sportsbook for Flarum 2 where members bet **virtual points** on real games, on
 
 ## Data providers
 
-Providers are tried in order for each job. One that fails three times in a row, is rate-limited, or has its key refused is paused for a while and the next is used. Every call is counted against that provider's budget in the database before it is made, so no number of workers or retries can spend past it. Keys are entered in the admin panel, next to a link to the page where each is made, and are never sent to the forum.
+Teams are matched across providers exactly (by each provider's own id, then by name or a name the same provider gave), never by a part of a name, so "Texas" is never "Texas Tech"; a game that can't be matched is left for you. Providers are tried in order for each job. One that fails three times in a row, is rate-limited, or has its key refused is paused for a while and the next is used. Every call is counted against that provider's budget in the database before it is made, so no number of workers or retries can spend past it. Keys are entered in the admin panel, next to a link to the page where each is made, and are never sent to the forum.
 
 | Provider | Gives | Key | Free tier | Default budget |
 |---|---|---|---|---|
@@ -49,7 +49,7 @@ Providers are tried in order for each job. One that fails three times in a row, 
 
 Check each provider's terms before you rely on it: they decide what you may display and how. SportsDataIO is not supported: its free trial serves scrambled data, and every real plan is paid.
 
-How often each job runs (each league, each job throttled on its own, so running the scheduler more often costs nothing): the full schedule every 6 hours, the next two days' games and prices every 30 minutes, results every 5 minutes while a game is due one, and branding weekly. A sync run downloads at most 25 logos.
+How often each job runs (each league, each job throttled on its own, so running the scheduler more often costs nothing): the full schedule every 6 hours, the next two days' games and ESPN's prices every 30 minutes, API-Football's prices every 3 hours, The Odds API's every 6 hours and CollegeFootballData's daily (each only for games still unpriced), results every 5 minutes while a game is due one (only for the days that have one; a postponed game is left alone for 6 hours), and branding weekly. A sync run downloads at most 25 logos, each checked to be a real image under 2048 pixels before it is decoded.
 
 ## How settlement stays exact
 

@@ -241,7 +241,7 @@ ernestdefoe-longshot:
       matchup: A game between two sides
       linked_help: "This game comes from {source}: its teams and kickoff follow the feed. Lock it to edit them, or suspend its markets to stop bets early."
       lock: Lock against syncs
-      locked_help: "Locked: no sync changes its sides, kickoff or status, so your edits stand. Prices still follow the feed on markets that do; its final score still settles it."
+      locked_help: "Locked: no sync changes its sides, kickoff or status, and no feed settles it: enter its score yourself. Prices still follow the feed on markets that do."
       home: Home
       away: Away
       title: Title

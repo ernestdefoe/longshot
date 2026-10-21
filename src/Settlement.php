@@ -517,7 +517,7 @@ class Settlement
         // Games no feed ever finished (postponed, cancelled, a feed gone
         // quiet): voided after the configured wait. Staff's own events wait for staff.
         if (($days = $this->config->autoVoidDays()) > 0) {
-            foreach (Event::query()->where('status', Event::OPEN)->where('source', '!=', 'manual')
+            foreach (Event::query()->where('status', Event::OPEN)->where('source', '!=', 'manual')->where('locked', false)
                 ->where('starts_at', '<', Carbon::now()->subDays($days))->orderBy('id')->limit(100)->get() as $event) {
                 $safely('voiding event '.$event->id, function () use ($event, &$done) {
                     $this->voidEvent($event);
