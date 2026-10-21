@@ -1,0 +1,68 @@
+.Longshot-adminNote {
+  background: var(--control-bg);
+  border-radius: var(--border-radius);
+  padding: 10px 14px;
+}
+
+.Longshot-adminHeading {
+  margin-top: 30px;
+}
+
+.Longshot-manager-bar,
+.Longshot-manager-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+
+  .FormControl {
+    width: auto;
+    min-width: 160px;
+  }
+}
+
+.Longshot-adminTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+
+  th,
+  td {
+    padding: 6px;
+    border-bottom: 1px solid var(--control-bg);
+    text-align: left;
+    vertical-align: middle;
+  }
+}
+
+.Longshot-adminActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.Longshot-leagues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.Longshot-editMarket {
+  border: 1px solid var(--control-bg);
+  border-radius: var(--border-radius);
+  padding: 10px 14px;
+  margin: 0 0 12px;
+
+  legend {
+    font-weight: 600;
+    padding: 0 6px;
+  }
+}
+
+.Longshot-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}

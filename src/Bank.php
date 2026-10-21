@@ -66,7 +66,7 @@ class Bank
         ]);
 
         if ($created && ($start = $this->config->startingBalance()) > 0) {
-            $this->db->transaction(fn () => $this->move($user, $start, 'start', 'start:'.$user->id));
+            $this->db->transaction(fn () => $this->move($user, $start, 'start', 'start:'.$user->id), 3);
         }
     }
 
@@ -83,7 +83,7 @@ class Bank
         }
 
         if ($this->db->transactionLevel() === 0) {
-            return $this->db->transaction(fn () => $this->move($user, $amount, $kind, $ref));
+            return $this->db->transaction(fn () => $this->move($user, $amount, $kind, $ref), 3);
         }
 
         $claimed = $this->db->table('longshot_ledger')->insertOrIgnore([

@@ -34,6 +34,8 @@ use InvalidArgumentException;
  */
 class Settlement
 {
+    use Atomic;
+
     public function __construct(
         private ConnectionInterface $db,
         private Bank $bank,
@@ -55,7 +57,7 @@ class Settlement
             throw new InvalidArgumentException('Only an event between two sides has a score.');
         }
 
-        $this->db->transaction(function () use ($event, $home, $away) {
+        $this->atomic(function () use ($event, $home, $away) {
             $fresh = Event::query()->whereKey($event->id)->lockForUpdate()->first();
 
             if (! $fresh || $fresh->status !== Event::OPEN) {
@@ -81,7 +83,7 @@ class Settlement
      */
     public function gradeScored(int $eventId): array
     {
-        return $this->db->transaction(function () use ($eventId) {
+        return $this->atomic(function () use ($eventId) {
             $event = Event::query()->find($eventId);
 
             if (! $event || $event->status !== Event::SETTLED || $event->home_score === null || $event->away_score === null) {
@@ -131,7 +133,7 @@ class Settlement
             throw new InvalidArgumentException('A scored market is graded from the event\'s score.');
         }
 
-        $resolved = $this->db->transaction(function () use ($market, $results) {
+        $resolved = $this->atomic(function () use ($market, $results) {
             $fresh = Market::query()->whereKey($market->id)->lockForUpdate()->first();
 
             if (! $fresh || $fresh->isFinished()) {
@@ -172,7 +174,7 @@ class Settlement
     /** Void an event: every market not yet settled is voided and its stakes returned. */
     public function voidEvent(Event $event): void
     {
-        $this->db->transaction(function () use ($event) {
+        $this->atomic(function () use ($event) {
             $fresh = Event::query()->whereKey($event->id)->lockForUpdate()->first();
 
             if ($fresh && $fresh->status === Event::OPEN) {
@@ -200,7 +202,7 @@ class Settlement
      */
     private function voidMarkets(array $ids): array
     {
-        return $this->db->transaction(function () use ($ids) {
+        return $this->atomic(function () use ($ids) {
             $open = Market::query()->whereIn('id', $ids)->whereNotIn('status', [Market::SETTLED, Market::VOID])->lockForUpdate()->pluck('id')->all();
 
             if ($open) {
@@ -308,7 +310,7 @@ class Settlement
     /** Pay one bet if all its legs are graded. Safe to call any number of times. */
     public function payBet(int $betId): void
     {
-        $paid = $this->db->transaction(function () use ($betId) {
+        $paid = $this->atomic(function () use ($betId) {
             $bet = Bet::query()->whereKey($betId)->where('status', Bet::OPEN)->lockForUpdate()->first();
 
             if (! $bet) {
@@ -355,7 +357,7 @@ class Settlement
      */
     private function payMatch(int $matchId, callable $result): void
     {
-        $this->db->transaction(function () use ($matchId, $result) {
+        $this->atomic(function () use ($matchId, $result) {
             $match = OfferMatch::query()->whereKey($matchId)->whereNull('result')->lockForUpdate()->first();
 
             if (! $match) {
@@ -420,7 +422,7 @@ class Settlement
     /** Close one offer, refunding its unmatched stake once. */
     public function closeOffer(int $offerId): ?Offer
     {
-        return $this->db->transaction(function () use ($offerId) {
+        return $this->atomic(function () use ($offerId) {
             $offer = Offer::query()->whereKey($offerId)->where('status', Offer::OPEN)->lockForUpdate()->first();
 
             if (! $offer) {
@@ -558,7 +560,7 @@ class Settlement
 
         // Then their own rows go, here rather than by the foreign keys'
         // cascade, which SQLite only performs with foreign keys switched on.
-        $this->db->transaction(function () use ($user) {
+        $this->atomic(function () use ($user) {
             $bets = Bet::query()->where('user_id', $user->id)->pluck('id')->all();
             $offers = Offer::query()->where('user_id', $user->id)->pluck('id')->all();
 

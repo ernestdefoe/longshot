@@ -23,6 +23,8 @@ use Illuminate\Database\ConnectionInterface;
  */
 class Exchange
 {
+    use Atomic;
+
     /** Open offers one member may have at once. */
     public const MAX_OPEN = 20;
 
@@ -55,7 +57,7 @@ class Exchange
         $this->bank->open($actor);
         $this->allowance->collect($actor);
 
-        $offer = $this->db->transaction(function () use ($actor, $selectionId, $odds, $line, $stake, $target) {
+        $offer = $this->atomic(function () use ($actor, $selectionId, $odds, $line, $stake, $target) {
             $this->placer->lockMember($actor);
 
             $selection = $this->open($selectionId);
@@ -120,7 +122,7 @@ class Exchange
         $this->bank->open($actor);
         $this->allowance->collect($actor);
 
-        [$match, $offer] = $this->db->transaction(function () use ($actor, $offerId, $back) {
+        [$match, $offer] = $this->atomic(function () use ($actor, $offerId, $back) {
             // The offer first, then the wallet: the house lock order.
             $offer = Offer::query()->whereKey($offerId)->lockForUpdate()->first();
 

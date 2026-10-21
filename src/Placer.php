@@ -23,6 +23,8 @@ use Illuminate\Support\Collection;
  */
 class Placer
 {
+    use Atomic;
+
     public function __construct(
         private ConnectionInterface $db,
         private Config $config,
@@ -78,7 +80,7 @@ class Placer
         $this->bank->open($actor);
         $this->allowance->collect($actor);
 
-        return $this->db->transaction(function () use ($actor, $parlay, $legs, $ids, $stakes, $limits) {
+        return $this->atomic(function () use ($actor, $parlay, $legs, $ids, $stakes, $limits) {
             // Serialise this member's slips: the daily limit and the balance
             // are read and spent under one lock.
             $this->lockMember($actor);

@@ -66,9 +66,14 @@ class OffersController implements RequestHandlerInterface
                 return $this->one($match->offer_id, $actor, 201);
             }
 
+            // A challenge names its member by id or by username.
             $target = null;
-            if ($targetId = $this->int($body['target'] ?? null)) {
-                $target = User::query()->whereVisibleTo($actor)->find($targetId);
+            $who = $body['target'] ?? null;
+            if ($who !== null && $who !== '') {
+                $id = $this->int($who);
+                $target = $id !== null
+                    ? User::query()->whereVisibleTo($actor)->find($id)
+                    : (is_string($who) ? User::query()->whereVisibleTo($actor)->where('username', mb_substr(ltrim(trim($who), '@'), 0, 100))->first() : null);
 
                 if (! $target) {
                     throw new Rejected('target');
