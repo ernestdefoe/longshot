@@ -155,7 +155,7 @@ jobs:
           # notes rendered fine on other repos the same week.
           CONTENT=""
           for attempt in 1 2; do
-            if CONTENT=$(jq -n --arg text "$CONTENT_MD" '{text:$text, mode:"gfm"}' \
+            if CONTENT=$(jq -n --arg text "$CONTENT_MD" '{text:$text, mode:"markdown"}' \
                  | gh api --method POST /markdown --input - 2>/tmp/md-render-err.txt) \
                && [ -n "$CONTENT" ]; then
               break
@@ -197,6 +197,22 @@ jobs:
             s|</pre>\s*</div>|</pre>|g;
             s|</?markdown-accessiblity-table>||g;
             #
+            # 🚨 A HEADING posts its permalink furniture as visible text.
+            #
+            # In "markdown" mode GitHub wraps every heading like this:
+            #   <div class="markdown-heading"><h2 class="heading-element">T</h2>
+            #   <a class="anchor"><span class="octicon octicon-link"></span></a></div>
+            #
+            # Flarum allows the heading and nothing else there, so it escapes
+            # the div, the anchor and the span, and the reader is shown the
+            # markup instead of a title. Keep the heading, drop the furniture.
+            s{<div class="markdown-heading">(.*?)</div>}{
+              my $h = $1;
+              $h =~ s{<a[^>]*class="anchor".*?</a>}{}gs;
+              $h =~ s{ class="heading-element"}{}g;
+              $h;
+            }ges;
+            #
             # 🚨 A FENCED CODE BLOCK posts its own wrapper as visible text.
             #
             # Flarum renders <pre> and supplies its OWN <code>, escaping
@@ -219,7 +235,7 @@ jobs:
             # what it is given — the same reason the <code> rule below does it.
             # Highlighting still happens: Flarum loads hljs client-side.
             #
-            # Must run BEFORE the inline-<code> rule, or its non-greedy
+            # Must run BEFORE the inline-<code> rule, or the non-greedy
             # match pairs an opening <code> inside a <pre> with a closing tag
             # outside it.
             s{<pre[^>]*>(.*?)</pre>}{
@@ -239,6 +255,14 @@ jobs:
               $open . $inner . "</code>";
             }ges;
             s|&amp;|&|g;
+            #
+            # 🚨 Flarum makes its OWN <br> from any newline inside a block.
+            #
+            # The renderer pretty-prints, so a wrapped paragraph arrives as
+            # several lines and Flarum turned every one of those into a visible
+            # line break. Hand it one line per block. Newlines inside <pre> are
+            # content, so they are kept.
+            s{(<pre.*?</pre>)|\n+}{ defined $1 ? $1 : " " }ges;
           ')
 
           PAYLOAD=$(jq -n \
