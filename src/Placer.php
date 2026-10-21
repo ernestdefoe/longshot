@@ -192,8 +192,8 @@ class Placer
             $events[$event->id] = $event;
 
             $line = $market->hasLine() ? Grader::normalise($market->line) : null;
-            $samePrice = $leg['odds'] === $selection->odds
-                || ($this->config->acceptBetterOdds() && Odds::decimal($selection->odds) > Odds::decimal($leg['odds']));
+            $samePrice = Odds::valid($leg['odds']) && $leg['odds'] === $selection->odds
+                || (Odds::valid($leg['odds']) && $this->config->acceptBetterOdds() && Odds::decimal($selection->odds) > Odds::decimal($leg['odds']));
 
             if (! $samePrice || Grader::normalise($leg['line']) !== $line) {
                 $moved[] = ['selection' => $selection->id, 'odds' => $selection->odds, 'line' => $line];

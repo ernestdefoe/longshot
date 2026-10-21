@@ -33,6 +33,12 @@ class WalletController implements RequestHandlerInterface
         $actor->assertCan('longshot.view');
 
         if ($request->getMethod() === 'PATCH') {
+            // Privacy is for members who play; opening a wallet pays the
+            // starting balance, which a viewer who may not bet never gets.
+            if (! $actor->hasPermission('longshot.bet') && ! $actor->hasPermission('longshot.exchange')) {
+                throw new \Flarum\User\Exception\PermissionDeniedException();
+            }
+
             $this->bank->open($actor);
             $this->db->table('longshot_wallets')->where('user_id', $actor->id)
                 ->update(['private' => (bool) ($this->body($request)['private'] ?? false)]);

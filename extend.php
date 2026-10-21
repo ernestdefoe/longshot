@@ -23,7 +23,7 @@ use Flarum\Api\Context;
 use Flarum\Api\Resource\ForumResource;
 use Flarum\Api\Schema;
 use Flarum\Extend;
-use Flarum\User\Event\Deleting;
+use Flarum\User\User;
 
 return [
     (new Extend\Frontend('forum'))
@@ -86,9 +86,11 @@ return [
         ->type(Notification\ChallengeBlueprint::class, ['alert']),
 
     // A member's exchange business with others is unwound before the
-    // database's cascade removes their rows and the other side's stake with them.
+    // database's cascade removes their rows and the other side's stake with
+    // them. The model's own event, so every way of deleting a member counts
+    // (Flarum's Deleting event fires for the API only).
     (new Extend\Event())
-        ->listen(Deleting::class, fn (Deleting $event) => resolve(Settlement::class)->releaseMember($event->user)),
+        ->listen('eloquent.deleting: '.User::class, fn (User $user) => resolve(Settlement::class)->releaseMember($user)),
 
     (new Extend\Settings())
         ->default('ernestdefoe-longshot.show_nav', true)

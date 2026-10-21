@@ -99,6 +99,7 @@ class OffersController implements RequestHandlerInterface
     private function index(ServerRequestInterface $request, User $actor): ResponseInterface
     {
         $scope = $request->getQueryParams()['scope'] ?? 'open';
+        $scope = in_array($scope, ['open', 'mine', 'challenges'], true) ? $scope : 'open';
         $offset = max(0, min(10000, (int) ($request->getQueryParams()['offset'] ?? 0)));
 
         if ($actor->isGuest() && $scope !== 'open') {

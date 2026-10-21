@@ -126,7 +126,9 @@ class Exchange
             // The offer first, then the wallet: the house lock order.
             $offer = Offer::query()->whereKey($offerId)->lockForUpdate()->first();
 
-            if (! $offer || ! $this->canSee($actor, $offer)) {
+            // A challenge is taken by the member it names, and nobody else:
+            // staff may see it, not accept it on their behalf.
+            if (! $offer || ! $this->canSee($actor, $offer) || ($offer->target_user_id !== null && $offer->target_user_id !== $actor->id && $offer->user_id !== $actor->id)) {
                 throw new Rejected('gone');
             }
 
@@ -138,20 +140,18 @@ class Exchange
                 throw new Rejected('offer_closed');
             }
 
+            // Then the layer's wallet, before anything else is read, so the
+            // daily limit is counted under the same lock that takes the stake.
+            $this->placer->lockMember($actor);
             $this->open($offer->selection_id);
 
             if ($back > $offer->remaining()) {
                 throw new Rejected('remaining', ['remaining' => $offer->remaining()]);
             }
 
-            $lay = Odds::profit($back, $offer->odds);
-
-            if ($lay < 1) {
-                throw new Rejected('min_stake', ['min' => $this->config->minStake()]);
-            }
+            $lay = Odds::liability($back, $offer->odds);
 
             $this->checkStake($actor, $lay);
-            $this->placer->lockMember($actor);
             $this->checkDaily($actor, $lay);
 
             $match = new OfferMatch();

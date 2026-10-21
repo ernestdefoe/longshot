@@ -154,7 +154,8 @@ class AdminToolsController implements RequestHandlerInterface
         }
 
         $imported = $this->picks->import();
-        $odds = $this->odds->run();
+        // At most ~20 seconds of ESPN calls here; the scheduled run does the rest.
+        $odds = $this->odds->run(20);
         $settled = $this->settlement->sweep();
 
         return new JsonResponse(['data' => ['imported' => $imported, 'odds' => $odds, 'settled' => $settled]]);

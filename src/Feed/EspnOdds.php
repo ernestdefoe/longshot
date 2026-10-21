@@ -43,9 +43,15 @@ class EspnOdds
     ) {
     }
 
-    /** @return array{calls: int, updated: int} */
-    public function run(): array
+    /**
+     * @param int $budget seconds to stop after, 0 for none: a staff member's
+     *                    "sync now" is a web request and must answer.
+     * @return array{calls: int, updated: int}
+     */
+    public function run(int $budget = 0): array
     {
+        $began = microtime(true);
+
         if (! $this->config->picksAvailable() || ! $this->config->feedOdds()) {
             return ['calls' => 0, 'updated' => 0];
         }
@@ -87,7 +93,7 @@ class EspnOdds
         $calls = $updated = 0;
 
         foreach ($wanted as $key => $events) {
-            if ($calls >= self::MAX_CALLS) {
+            if ($calls >= self::MAX_CALLS || ($budget > 0 && microtime(true) - $began > $budget)) {
                 break;
             }
 

@@ -45,6 +45,22 @@ final class Odds
         return $odds > 0 ? intdiv($stake * $odds, 100) : intdiv($stake * 100, -$odds);
     }
 
+    /**
+     * What a layer puts up against $back of a backer's stake at the backer's
+     * price: the backer's profit, rounded UP.
+     *
+     * 🚨 Up, not down. The layer chooses how much to match, so rounding in
+     * their favour can be farmed: laying 1,000 at -101 in pieces of 2 cost
+     * 1 point a piece (500 in all, not 990). Rounding up, a piece can only
+     * ever cost the layer a fraction of a point more, never the backer.
+     */
+    public static function liability(int $back, int $odds): int
+    {
+        self::assertValid($odds);
+
+        return $odds > 0 ? intdiv($back * $odds + 99, 100) : intdiv($back * 100 + (-$odds - 1), -$odds);
+    }
+
     /** Stake plus profit: what a winning single pays back. */
     public static function payout(int $stake, int $odds): int
     {

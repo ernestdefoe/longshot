@@ -212,6 +212,12 @@ class EventSaver
             }
 
             if (! $selection) {
+                // A new option (a draw added to a moneyline) would change how
+                // the bets already on it are graded.
+                if ($used) {
+                    $this->fail('markets', 'market_used');
+                }
+
                 $this->inserts[] = ['market_id' => $market->id, 'key' => $key, 'label' => $label, 'odds' => $odds, 'sort' => $sort];
                 continue;
             }
