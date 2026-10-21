@@ -1,0 +1,43 @@
+ernestdefoe-longshot:
+  api:
+    rejected:
+      empty: Your bet slip is empty.
+      too_many: A slip can hold up to 20 single bets.
+      parlay_legs: A parlay needs 2 to {max} selections.
+      duplicate: The same selection is on your slip twice.
+      duplicate_slip: That bet slip was already placed.
+      min_stake: The smallest stake is {min}.
+      max_stake: The largest stake you can place is {max}.
+      daily_limit: That would take you past your daily limit of {limit}.
+      max_payout: That bet could return more than the {max} limit. Lower the stake.
+      balance: You don't have enough points for that.
+      gone: That selection is no longer available.
+      closed: "{event} is no longer taking bets."
+      same_event: A parlay can only have one selection from {event}.
+      prices: Prices have changed. Check your slip and try again.
+      odds: Odds must be a whole number of at least 100 either way, like -110 or +150, up to 10000.
+      target: You can't challenge that member.
+      max_offers: You can have up to {max} open offers at a time.
+      own_offer: You can't take your own offer.
+      offer_closed: That offer is no longer open.
+      remaining: Only {remaining} of that offer is left to match.
+    admin:
+      finished: This event is already settled or void.
+      names: Give the event a title, or both sides.
+      starts: Give the event a valid start time.
+      too_many_markets: An event can have up to 30 markets.
+      unknown_market: A market or selection in the form no longer exists. Reload and try again.
+      market_type: That market type isn't available for this event. Events without two sides take custom markets only.
+      market_used: Bets or offers were placed on that market, so it can't be changed that way. Void it instead.
+      line: Spreads and totals need a line in whole or half points.
+      custom_label: Custom markets and their options need a name.
+      custom_count: A custom market needs 2 to 40 options.
+      selection_key: Every market needs both of its sides.
+      odds: Odds must be a whole number of at least 100 either way, up to 10000.
+      results: Give every option a result (win, lose or void). At least one must win, unless every one is void.
+      score: Scores are whole numbers from 0 to 9999.
+      event_used: Bets or offers were placed on this event, so it can't be deleted. Void it instead.
+      limit: Limits are whole numbers from 0 up.
+      no_user: No member has that username.
+      amount: Give a whole number of points to add, or a negative number to take away, that the balance can cover.
+      slow_down: A sync is already running. Try again in a minute.
