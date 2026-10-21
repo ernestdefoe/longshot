@@ -19,13 +19,37 @@ A sportsbook for Flarum 2 where members bet **virtual points** on real games, on
 
 ## What staff get
 
-- **Games from [Picks](https://github.com/ernestdefoe/picks)**, when it is installed: every league Picks follows (college football, NFL, NBA, college basketball, MLB, NHL, MLS, Premier League, Champions League) is offered automatically a few days ahead, priced from ESPN's odds and **settled from Picks' own final scores**. Longshot never fetches a score itself, so it and your pick'em can never disagree about who won.
+- **A book that runs itself.** Pick the leagues to follow (NFL, college football, NBA, WNBA, college basketball, MLB, NHL, Premier League, LaLiga, Bundesliga, Serie A, Ligue 1, MLS, Champions League) and Longshot:
+  - imports their games a few days ahead, with a moneyline (and a draw for soccer), a spread and a total;
+  - prices them from the data providers and refreshes the prices until kickoff;
+  - closes each game when it starts, even if it starts early;
+  - settles it from the final score (soccer on 90 minutes, as books do);
+  - voids a game that never finishes (postponed, cancelled) after a wait you choose, returning every stake;
+  - brands teams with their logos and colours, and leagues with their badges. Logos are downloaded once, resized and served from your forum, never hotlinked.
+- **Games from [Picks](https://github.com/ernestdefoe/picks)**, when it is installed: the leagues it plays are taken from Picks (its own fixtures and final scores), so Longshot and your pick'em never disagree about a result.
+- **Your word is final.** Lock an event and no sync touches its sides, kickoff or status. Hide one and it stays gone. Take a market off the feed and price it yourself. Edit a team's name, colours or logo and it stays that way.
 - **Events by hand** for any sport, or anything else: a game between two sides, or a titled event with custom markets.
 - **Results**: enter a final score and every moneyline, spread and total is graded; name the winner of a custom market; void anything to return every stake.
 - **Limits**: smallest and largest stake, a daily staking limit, the largest return on one bet, and per-group overrides (the most generous group wins).
 - **Weekly allowance**, added each week or topping the balance up to a set amount, with per-group amounts.
 - **Points by hand**, for prizes and corrections, recorded in the member's history.
 - Permissions to view, bet, use the exchange and manage the book.
+
+## Data providers
+
+Providers are tried in order for each job. One that fails three times in a row, is rate-limited, or has its key refused is paused for a while and the next is used. Every call is counted against that provider's budget in the database before it is made, so no number of workers or retries can spend past it. Keys are entered in the admin panel, next to a link to the page where each is made, and are never sent to the forum.
+
+| Provider | Gives | Key | Free tier | Default budget |
+|---|---|---|---|---|
+| **ESPN** public scoreboards | Schedules, live status, results, one sportsbook's prices, team logos and colours, league badges | None | Unofficial: no published limits or terms for this use | 2,000 calls a day |
+| **[API-Football](https://www.api-football.com/)** | Soccer: fixtures, 90-minute results, Bet365 prices, team crests | [Free key](https://dashboard.api-football.com/register) | 100 requests a day | 90 a day |
+| **[The Odds API](https://the-odds-api.com/)** | Prices from many bookmakers for every league; final scores as a fallback | [Free key](https://the-odds-api.com/#get-access) | 500 credits a month (3 per price check, 2 per scores check) | 450 credits a month |
+| **[CollegeFootballData](https://collegefootballdata.com/)** | College football lines for games ESPN doesn't price | [Free key](https://collegefootballdata.com/key), or Picks' key if set | 1,000 calls a month (shared with Picks' key) | 60 a month |
+| **[TheSportsDB](https://www.thesportsdb.com/)** | Team badges and colours, league badges | Optional ([supporter key](https://www.thesportsdb.com/pricing)) | Public key: 10 teams per league, about 30 calls a minute | 300 a day, 20 a minute |
+
+Check each provider's terms before you rely on it: they decide what you may display and how. SportsDataIO is not supported: its free trial serves scrambled data, and every real plan is paid.
+
+How often each job runs (each league, each job throttled on its own, so running the scheduler more often costs nothing): the full schedule every 6 hours, the next two days' games and prices every 30 minutes, results every 5 minutes while a game is due one, and branding weekly. A sync run downloads at most 25 logos.
 
 ## How settlement stays exact
 
@@ -47,8 +71,10 @@ Then enable it in the admin panel.
 
 Longshot settles games and closes exchange offers from Flarum's scheduler, so make sure your forum's scheduler runs (`php flarum schedule:run` every minute). It runs:
 
-- `longshot:settle` every minute: results from Picks, offers closed at kickoff, stalled games voided after a wait you choose, and anything an interrupted run left half done;
-- `longshot:sync` every 30 minutes: upcoming Picks games offered, and their prices refreshed from ESPN (at most one request per league per game day, and only while a game is open for bets).
+- `longshot:settle` every minute: results from Picks and the providers, offers closed at kickoff, stalled games voided after a wait you choose, and anything an interrupted run left half done;
+- `longshot:sync` every 30 minutes: upcoming Picks games offered and priced, a queued sync for each league you follow (most runs ask no provider anything; see the timings above), and up to 25 waiting logos cached.
+
+Run a queue worker (`php flarum queue:work`) if you can: the league syncs are queued jobs. Without one they run inside the scheduler, which is fine too.
 
 ### Optional
 
