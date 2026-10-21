@@ -33,6 +33,8 @@ class OfferMatch extends AbstractModel
     protected $table = 'longshot_matches';
 
     protected $casts = [
+        'user_id' => 'integer',
+        'offer_id' => 'integer',
         'back_stake' => 'integer',
         'lay_stake' => 'integer',
         'created_at' => 'datetime',

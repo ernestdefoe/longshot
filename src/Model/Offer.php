@@ -40,6 +40,7 @@ class Offer extends AbstractModel
     protected $table = 'longshot_offers';
 
     protected $casts = [
+        'user_id' => 'integer',
         'odds' => 'integer',
         'stake' => 'integer',
         'matched' => 'integer',

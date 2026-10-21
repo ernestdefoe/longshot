@@ -35,7 +35,8 @@ class WalletController implements RequestHandlerInterface
         if ($request->getMethod() === 'PATCH') {
             // Privacy is for members who play; opening a wallet pays the
             // starting balance, which a viewer who may not bet never gets.
-            if (! $actor->hasPermission('longshot.bet') && ! $actor->hasPermission('longshot.exchange')) {
+            // can(), not hasPermission(): a suspended member is refused by policy.
+            if (! $actor->can('longshot.bet') && ! $actor->can('longshot.exchange')) {
                 throw new \Flarum\User\Exception\PermissionDeniedException();
             }
 

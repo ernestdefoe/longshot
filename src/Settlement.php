@@ -180,7 +180,12 @@ class Settlement
         $voided = $this->atomic(function () use ($event) {
             $fresh = Event::query()->whereKey($event->id)->lockForUpdate()->first();
 
-            if ($fresh && $fresh->status === Event::OPEN) {
+            // Scored meanwhile (an admin, a sync): its markets are graded, not voided.
+            if (! $fresh || $fresh->status === Event::SETTLED) {
+                return [];
+            }
+
+            if ($fresh->status === Event::OPEN) {
                 $fresh->status = Event::VOID;
                 $fresh->settled_at = Carbon::now();
                 $fresh->save();
@@ -483,7 +488,12 @@ class Settlement
             }
         };
 
-        foreach ($this->picks->refresh() as $final) {
+        $finals = [];
+        $safely('reading results from Picks', function () use (&$finals) {
+            $finals = $this->picks->refresh();
+        });
+
+        foreach ($finals as $final) {
             $safely('scoring event '.$final['event'], function () use ($final, &$done) {
                 if ($event = Event::query()->find($final['event'])) {
                     $this->score($event, $final['home'], $final['away']);
@@ -585,6 +595,16 @@ class Settlement
      */
     public function releaseMember(User $user): void
     {
+        // Held for the whole release: the member cannot make an offer (or a
+        // bet) halfway through and have it deleted with someone's lay on it.
+        $this->atomic(fn () => $this->release($user));
+    }
+
+    private function release(User $user): void
+    {
+        $this->db->table('longshot_wallets')->where('user_id', $user->id)->lockForUpdate()->value('user_id');
+        $this->db->table('users')->where('id', $user->id)->lockForUpdate()->value('id');
+
         $offers = Offer::query()->where('status', Offer::OPEN)
             ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('target_user_id', $user->id))
             ->pluck('id');

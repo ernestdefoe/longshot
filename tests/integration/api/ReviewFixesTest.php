@@ -194,4 +194,22 @@ class ReviewFixesTest extends TestCase
         }
         $this->assertSame(0, Bet::query()->count());
     }
+
+    #[Test]
+    public function an_auto_void_racing_a_score_leaves_the_scored_event_alone(): void
+    {
+        $g = $this->game();
+        $this->balance(2);
+        $this->bet(2, [$this->leg($g['home'], 170)]);
+        Event::query()->whereKey($g['event'])->update(['starts_at' => Carbon::now()->subHour()]);
+
+        // The sweep read the event as open, then an admin scored it.
+        $stale = Event::query()->findOrFail($g['event']);
+        $this->score($g['event'], 3, 0);
+        $this->settlement()->voidEvent($stale);
+
+        $this->assertSame(Event::SETTLED, Event::query()->find($g['event'])->status);
+        $this->assertSame(Bet::WON, Bet::query()->value('status'));
+        $this->assertSame(1100, $this->stored(2));
+    }
 }
