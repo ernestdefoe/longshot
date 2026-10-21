@@ -224,7 +224,7 @@ export class EventPage extends BookPage {
 
         <section className="Longshot-exchange">
           <h3>{t('forum.exchange.title')}</h3>
-          <p className="Longshot-muted">{t('forum.exchange.explain')}</p>
+          <p className="Longshot-intro">{t('forum.exchange.explain')}</p>
           {this.offers.length ? (
             this.offers.map((offer) => <OfferCard key={offer.id} offer={offer} onchange={() => this.load()} />)
           ) : (
@@ -325,7 +325,7 @@ export class ExchangePage extends BookPage {
 
     return (
       <div>
-        <p className="Longshot-muted">{t('forum.exchange.explain')}</p>
+        <p className="Longshot-intro">{t('forum.exchange.explain')}</p>
         <div className="Longshot-segmented" role="tablist">
           {scopes.map((s) => (
             <button
