@@ -93,7 +93,13 @@ export default class EventModal extends FormModal<Attrs> {
       status: 'open',
       feed: false,
       locked: false,
-      selections: type === 'custom' ? [{ key: '', label: '', odds: '' }, { key: '', label: '', odds: '' }] : keys.map((key) => ({ key, label: '', odds: '-110' })),
+      selections:
+        type === 'custom'
+          ? [
+              { key: '', label: '', odds: '' },
+              { key: '', label: '', odds: '' },
+            ]
+          : keys.map((key) => ({ key, label: '', odds: '-110' })),
     };
   }
 
@@ -123,7 +129,13 @@ export default class EventModal extends FormModal<Attrs> {
           {this.input('league', t('admin.event.league'))}
           <div className="Form-group">
             <label>{t('admin.event.starts')}</label>
-            <input className="FormControl" type="datetime-local" disabled={this.linked} value={this.startsAt} oninput={(e: InputEvent) => (this.startsAt = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              type="datetime-local"
+              disabled={this.linked}
+              value={this.startsAt}
+              oninput={(e: InputEvent) => (this.startsAt = (e.target as HTMLInputElement).value)}
+            />
             <p className="helpText">{t('admin.event.starts_help')}</p>
           </div>
         </div>
@@ -150,7 +162,13 @@ export default class EventModal extends FormModal<Attrs> {
     return (
       <div className="Form-group">
         <label>{label}</label>
-        <input className="FormControl" maxlength={field === 'league' ? 60 : 200} disabled={disabled} value={this[field]} oninput={(e: InputEvent) => (this[field] = (e.target as HTMLInputElement).value)} />
+        <input
+          className="FormControl"
+          maxlength={field === 'league' ? 60 : 200}
+          disabled={disabled}
+          value={this[field]}
+          oninput={(e: InputEvent) => (this[field] = (e.target as HTMLInputElement).value)}
+        />
       </div>
     );
   }
@@ -170,18 +188,32 @@ export default class EventModal extends FormModal<Attrs> {
           {mk.type === 'custom' ? (
             <div className="Form-group">
               <label>{t('admin.event.market_name')}</label>
-              <input className="FormControl" maxlength="150" value={mk.label} oninput={(e: InputEvent) => (mk.label = (e.target as HTMLInputElement).value)} />
+              <input
+                className="FormControl"
+                maxlength="150"
+                value={mk.label}
+                oninput={(e: InputEvent) => (mk.label = (e.target as HTMLInputElement).value)}
+              />
             </div>
           ) : null}
           {mk.type === 'spread' || mk.type === 'total' ? (
             <div className="Form-group">
               <label>{mk.type === 'spread' ? t('admin.event.home_line') : t('admin.event.total_line')}</label>
-              <input className="FormControl" inputmode="decimal" value={mk.line} oninput={(e: InputEvent) => (mk.line = (e.target as HTMLInputElement).value)} />
+              <input
+                className="FormControl"
+                inputmode="decimal"
+                value={mk.line}
+                oninput={(e: InputEvent) => (mk.line = (e.target as HTMLInputElement).value)}
+              />
             </div>
           ) : null}
           <div className="Form-group">
             <label>{t('admin.event.status')}</label>
-            <Select options={{ open: t('admin.event.open'), suspended: t('admin.event.suspended') }} value={mk.status} onchange={(v: 'open' | 'suspended') => (mk.status = v)} />
+            <Select
+              options={{ open: t('admin.event.open'), suspended: t('admin.event.suspended') }}
+              value={mk.status}
+              onchange={(v: 'open' | 'suspended') => (mk.status = v)}
+            />
           </div>
           {this.linked && fixed ? (
             <div className="Form-group">
@@ -200,15 +232,32 @@ export default class EventModal extends FormModal<Attrs> {
                   {fixed ? (
                     t('admin.event.key_' + s.key)
                   ) : (
-                    <input className="FormControl" maxlength="150" placeholder={extractText(t('admin.event.option'))} value={s.label} oninput={(e: InputEvent) => (s.label = (e.target as HTMLInputElement).value)} />
+                    <input
+                      className="FormControl"
+                      maxlength="150"
+                      placeholder={extractText(t('admin.event.option'))}
+                      value={s.label}
+                      oninput={(e: InputEvent) => (s.label = (e.target as HTMLInputElement).value)}
+                    />
                   )}
                 </td>
                 <td>
-                  <input className="FormControl" inputmode="numeric" placeholder="-110" value={s.odds} oninput={(e: InputEvent) => (s.odds = (e.target as HTMLInputElement).value.replace(/[^0-9+-]/g, ''))} />
+                  <input
+                    className="FormControl"
+                    inputmode="numeric"
+                    placeholder="-110"
+                    value={s.odds}
+                    oninput={(e: InputEvent) => (s.odds = (e.target as HTMLInputElement).value.replace(/[^0-9+-]/g, ''))}
+                  />
                 </td>
                 <td>
                   {!fixed || s.key === 'draw' ? (
-                    <Button className="Button Button--icon" icon="fas fa-times" aria-label={extractText(t('admin.event.remove_option'))} onclick={() => mk.selections.splice(i, 1)} />
+                    <Button
+                      className="Button Button--icon"
+                      icon="fas fa-times"
+                      aria-label={extractText(t('admin.event.remove_option'))}
+                      onclick={() => mk.selections.splice(i, 1)}
+                    />
                   ) : null}
                 </td>
               </tr>
@@ -254,7 +303,12 @@ export default class EventModal extends FormModal<Attrs> {
         line: mk.line || null,
         status: mk.status,
         feed: mk.feed,
-        selections: mk.selections.map((s) => ({ id: s.id, key: s.key, label: s.label || null, odds: s.odds === '' || s.odds === '-' ? null : parseInt(s.odds, 10) })),
+        selections: mk.selections.map((s) => ({
+          id: s.id,
+          key: s.key,
+          label: s.label || null,
+          odds: s.odds === '' || s.odds === '-' ? null : parseInt(s.odds, 10),
+        })),
       })),
     };
 

@@ -23,6 +23,9 @@ import OddsButton from '../components/OddsButton';
 import OfferCard from '../components/OfferCard';
 import OfferForm from '../components/OfferForm';
 import person from '../components/Avatar';
+import useStyles from '../styles';
+
+useStyles();
 
 /*
  * Every page of the book, in one chunk: none of it loads anywhere else.
@@ -108,7 +111,11 @@ export class BoardPage extends BookPage {
 
   load(reset = false) {
     this.loading = true;
-    get('', { results: this.tab === 'results' ? 1 : undefined, league: this.league || undefined, offset: reset ? 0 : (this.events ?? []).length }).then((r) => {
+    get('', {
+      results: this.tab === 'results' ? 1 : undefined,
+      league: this.league || undefined,
+      offset: reset ? 0 : (this.events ?? []).length,
+    }).then((r) => {
       this.events = reset ? r.data : [...(this.events ?? []), ...r.data];
       this.leagues = r.meta.leagues;
       this.more = r.meta.more;
@@ -435,7 +442,12 @@ export class LeaderboardPage extends BookPage {
                 {balance ? (
                   <th>{t('forum.leaderboard.balance')}</th>
                 ) : (
-                  [<th>{t('forum.leaderboard.profit')}</th>, <th className="Longshot-hide-phone">{t('forum.leaderboard.settled')}</th>, <th className="Longshot-hide-phone">{t('forum.leaderboard.win_rate')}</th>, <th>{t('forum.leaderboard.roi')}</th>]
+                  [
+                    <th>{t('forum.leaderboard.profit')}</th>,
+                    <th className="Longshot-hide-phone">{t('forum.leaderboard.settled')}</th>,
+                    <th className="Longshot-hide-phone">{t('forum.leaderboard.win_rate')}</th>,
+                    <th>{t('forum.leaderboard.roi')}</th>,
+                  ]
                 )}
               </tr>
             </thead>
@@ -521,12 +533,20 @@ export class WalletPage extends BookPage {
           <dt>{t('forum.wallet.allowance')}</dt>
           <dd>
             {w.allowance > 0
-              ? t(w.allowanceMode === 'topup' ? 'forum.wallet.allowance_topup' : 'forum.wallet.allowance_add', { value: points(w.allowance), next: when(w.nextAllowance) })
+              ? t(w.allowanceMode === 'topup' ? 'forum.wallet.allowance_topup' : 'forum.wallet.allowance_add', {
+                  value: points(w.allowance),
+                  next: when(w.nextAllowance),
+                })
               : t('forum.wallet.no_allowance')}
           </dd>
           <dt>{t('forum.wallet.max_stake')}</dt>
           <dd>{points(w.maxStake)}</dd>
-          {w.dailyLimit > 0 ? [<dt>{t('forum.wallet.daily_limit')}</dt>, <dd>{t('forum.wallet.daily_used', { used: points(w.stakedToday ?? 0), limit: points(w.dailyLimit) })}</dd>] : null}
+          {w.dailyLimit > 0
+            ? [
+                <dt>{t('forum.wallet.daily_limit')}</dt>,
+                <dd>{t('forum.wallet.daily_used', { used: points(w.stakedToday ?? 0), limit: points(w.dailyLimit) })}</dd>,
+              ]
+            : null}
         </dl>
 
         <Switch

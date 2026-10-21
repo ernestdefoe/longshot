@@ -10,14 +10,14 @@ export function selectionLabel(event: BookEvent, type: MarketType, key: string, 
 
   const team = key === 'home' ? event.home?.name : key === 'away' ? event.away?.name : null;
 
-  if (type === 'moneyline') return key === 'draw' ? extractText(t('forum.market.draw')) : team ?? '';
+  if (type === 'moneyline') return key === 'draw' ? extractText(t('forum.market.draw')) : (team ?? '');
   if (type === 'spread') return `${team ?? ''} ${formatLine(sideLine(type, key, line))}`;
 
   return `${extractText(t(key === 'over' ? 'forum.market.over' : 'forum.market.under'))} ${line === null ? '' : Number(line)}`;
 }
 
 export function marketLabel(type: MarketType, label: string | null): string {
-  return type === 'custom' ? label ?? '' : extractText(t('forum.market.' + type));
+  return type === 'custom' ? (label ?? '') : extractText(t('forum.market.' + type));
 }
 
 /** Points, with the forum's name for them. */

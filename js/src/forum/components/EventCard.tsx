@@ -23,7 +23,10 @@ export default class EventCard extends Component<EventCardAttrs> {
     const event = this.attrs.event;
     const markets = event.markets ?? [];
     const scored = (['spread', 'total', 'moneyline'] as const).map((type) => markets.find((mk) => mk.type === type));
-    const extra = markets.filter((mk) => mk.type === 'custom').length + (markets.some((mk) => mk.selections.some((s) => s.key === 'draw')) ? 1 : 0);
+    // Markets this card does not show: props beside a game, or beyond the
+    // first on a titled event; and a moneyline's draw.
+    const props = markets.filter((mk) => mk.type === 'custom').length;
+    const extra = (event.home ? props : Math.max(0, props - 1)) + (markets.some((mk) => mk.selections.some((s) => s.key === 'draw')) ? 1 : 0);
 
     return (
       <article className="Longshot-event">
@@ -98,6 +101,10 @@ export default class EventCard extends Component<EventCardAttrs> {
       );
     }
 
-    return <time className="Longshot-state" dateTime={event.startsAt}>{when(event.startsAt)}</time>;
+    return (
+      <time className="Longshot-state" dateTime={event.startsAt}>
+        {when(event.startsAt)}
+      </time>
+    );
   }
 }

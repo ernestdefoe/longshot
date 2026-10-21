@@ -30,7 +30,10 @@ export default class BetSlip extends Component {
     const returns = this.returns();
 
     return (
-      <aside className={classList('Longshot-slip', { 'is-open': slip.open, 'is-empty': !legs.length })} aria-label={extractText(t('forum.slip.title'))}>
+      <aside
+        className={classList('Longshot-slip', { 'is-open': slip.open, 'is-empty': !legs.length })}
+        aria-label={extractText(t('forum.slip.title'))}
+      >
         <button type="button" className="Longshot-slip-bar" onclick={() => (slip.open = !slip.open)} aria-expanded={slip.open ? 'true' : 'false'}>
           <span>{t('forum.slip.title')}</span>
           {legs.length ? <span className="Longshot-badge">{legs.length}</span> : null}
@@ -80,7 +83,12 @@ export default class BetSlip extends Component {
                   </span>
                 </div>
                 <span className="Longshot-slip-leg-odds">{formatOdds(leg.odds, prefs.odds)}</span>
-                <Button className="Button Button--icon Button--link" icon="fas fa-times" aria-label={extractText(t('forum.slip.remove'))} onclick={() => slip.remove(leg.selection)} />
+                <Button
+                  className="Button Button--icon Button--link"
+                  icon="fas fa-times"
+                  aria-label={extractText(t('forum.slip.remove'))}
+                  onclick={() => slip.remove(leg.selection)}
+                />
                 {!parlayMode ? this.stakeInput(leg.stake, (v) => (leg.stake = v), leg.odds) : null}
               </li>
             ))}
@@ -140,7 +148,9 @@ export default class BetSlip extends Component {
             slip.save();
           }}
         />
-        {odds !== undefined && stake > 0 ? <span className="Longshot-stake-returns">{t('forum.slip.returns_short', { value: points(payout(stake, odds)) })}</span> : null}
+        {odds !== undefined && stake > 0 ? (
+          <span className="Longshot-stake-returns">{t('forum.slip.returns_short', { value: points(payout(stake, odds)) })}</span>
+        ) : null}
       </label>
     );
   }
@@ -176,7 +186,12 @@ export default class BetSlip extends Component {
   returns(): number {
     if (slip.mode === 'parlay') {
       const stake = parseInt(slip.parlayStake, 10) || 0;
-      return stake && slip.legs.length > 1 ? parlay(stake, slip.legs.map((l) => l.odds)) : 0;
+      return stake && slip.legs.length > 1
+        ? parlay(
+            stake,
+            slip.legs.map((l) => l.odds)
+          )
+        : 0;
     }
 
     return slip.legs.reduce((sum, l) => sum + (parseInt(l.stake, 10) > 0 ? payout(parseInt(l.stake, 10), l.odds) : 0), 0);
@@ -216,4 +231,3 @@ export default class BetSlip extends Component {
       });
   }
 }
-

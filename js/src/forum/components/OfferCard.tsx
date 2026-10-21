@@ -51,7 +51,8 @@ export default class OfferCard extends Component<OfferCardAttrs> {
           <strong>{pick}</strong> <span className="Longshot-odds-price">{formatOdds(offer.odds, prefs.odds)}</span>
           <span className="Longshot-muted">
             {' '}
-            · {marketLabel(offer.market.type, offer.market.label)} · <Link href={app.route('longshot.event', { id: offer.event.id })}>{offer.event.name}</Link>
+            · {marketLabel(offer.market.type, offer.market.label)} ·{' '}
+            <Link href={app.route('longshot.event', { id: offer.event.id })}>{offer.event.name}</Link>
           </span>
         </p>
 
@@ -63,9 +64,10 @@ export default class OfferCard extends Component<OfferCardAttrs> {
           <ul className="Longshot-offer-matches">
             {offer.matches.map((match) => (
               <li>
-                {person(match.user)}{' '}
-                {t('forum.offer.laid', { back: points(match.back), lay: points(match.lay) })}
-                {match.result ? <span className={classList('Longshot-pill', 'is-' + match.result)}>{t('forum.offer.result.' + match.result)}</span> : null}
+                {person(match.user)} {t('forum.offer.laid', { back: points(match.back), lay: points(match.lay) })}
+                {match.result ? (
+                  <span className={classList('Longshot-pill', 'is-' + match.result)}>{t('forum.offer.result.' + match.result)}</span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -90,7 +92,12 @@ export default class OfferCard extends Component<OfferCardAttrs> {
               />
             </label>
             <p className="Longshot-muted">{back ? t('forum.offer.you_risk', { risk: points(risk), win: points(back) }) : t('forum.offer.explain')}</p>
-            <Button className="Button Button--primary" loading={this.loading} disabled={!back || back > offer.remaining} onclick={() => this.take(back)}>
+            <Button
+              className="Button Button--primary"
+              loading={this.loading}
+              disabled={!back || back > offer.remaining}
+              onclick={() => this.take(back)}
+            >
               {t('forum.offer.lay')}
             </Button>
             {this.error ? (

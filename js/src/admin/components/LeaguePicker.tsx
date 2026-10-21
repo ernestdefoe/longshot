@@ -33,7 +33,9 @@ export default class LeaguePicker extends Component<LeaguePickerAttrs> {
                 type="checkbox"
                 disabled={this.saving}
                 checked={current.includes(league)}
-                onchange={(e: Event) => this.save((e.target as HTMLInputElement).checked ? [...current, league] : current.filter((l) => l !== league))}
+                onchange={(e: Event) =>
+                  this.save((e.target as HTMLInputElement).checked ? [...current, league] : current.filter((l) => l !== league))
+                }
               />
               {name}
             </label>

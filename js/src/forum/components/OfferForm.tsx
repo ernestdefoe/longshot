@@ -64,7 +64,8 @@ export default class OfferForm extends Component<OfferFormAttrs> {
             <option value="">{t('forum.offer.pick_placeholder')}</option>
             {choices.map((c) => (
               <option value={String(c.selection.id)}>
-                {marketLabel(c.market.type, c.market.label)}: {selectionLabel(event, c.market.type, c.selection.key, c.selection.label, c.market.line)}
+                {marketLabel(c.market.type, c.market.label)}:{' '}
+                {selectionLabel(event, c.market.type, c.selection.key, c.selection.label, c.market.line)}
                 {c.selection.odds !== null ? ` (${formatOdds(c.selection.odds)})` : ''}
               </option>
             ))}
@@ -74,21 +75,47 @@ export default class OfferForm extends Component<OfferFormAttrs> {
         <div className="Longshot-form-row">
           <label>
             <span>{t('forum.offer.your_odds')}</span>
-            <input className="FormControl" type="text" inputmode="numeric" placeholder="+150" value={this.odds} oninput={(e: InputEvent) => (this.odds = (e.target as HTMLInputElement).value.replace(/[^0-9+-]/g, ''))} />
+            <input
+              className="FormControl"
+              type="text"
+              inputmode="numeric"
+              placeholder="+150"
+              value={this.odds}
+              oninput={(e: InputEvent) => (this.odds = (e.target as HTMLInputElement).value.replace(/[^0-9+-]/g, ''))}
+            />
           </label>
           <label>
             <span>{t('forum.offer.your_stake')}</span>
-            <input className="FormControl" type="number" inputmode="numeric" min="1" value={this.stake} oninput={(e: InputEvent) => (this.stake = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, ''))} />
+            <input
+              className="FormControl"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              value={this.stake}
+              oninput={(e: InputEvent) => (this.stake = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, ''))}
+            />
           </label>
         </div>
 
         <label>
           <span>{t('forum.offer.challenge')}</span>
-          <input className="FormControl" type="text" placeholder={extractText(t('forum.offer.challenge_placeholder'))} value={this.target} oninput={(e: InputEvent) => (this.target = (e.target as HTMLInputElement).value)} />
+          <input
+            className="FormControl"
+            type="text"
+            placeholder={extractText(t('forum.offer.challenge_placeholder'))}
+            value={this.target}
+            oninput={(e: InputEvent) => (this.target = (e.target as HTMLInputElement).value)}
+          />
         </label>
 
-        {valid && stake ? <p className="Longshot-muted">{t('forum.offer.preview', { stake: points(stake), win: points(profit(stake, odds)) })}</p> : null}
-        {this.error ? <p className="Longshot-slip-error" role="alert">{this.error}</p> : null}
+        {valid && stake ? (
+          <p className="Longshot-muted">{t('forum.offer.preview', { stake: points(stake), win: points(profit(stake, odds)) })}</p>
+        ) : null}
+        {this.error ? (
+          <p className="Longshot-slip-error" role="alert">
+            {this.error}
+          </p>
+        ) : null}
         {this.done ? <p className="Longshot-slip-placed">{t('forum.offer.made')}</p> : null}
 
         <Button type="submit" className="Button Button--primary" loading={this.loading} disabled={!chosen || !valid || !stake || !app.session.user}>

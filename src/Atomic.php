@@ -25,10 +25,10 @@ trait Atomic
 
     /**
      * @template T
-     * @param callable(): T $work
+     * @param \Closure(): T $work
      * @return T
      */
-    protected function atomic(callable $work): mixed
+    protected function atomic(\Closure $work): mixed
     {
         for ($attempt = 1; ; $attempt++) {
             try {

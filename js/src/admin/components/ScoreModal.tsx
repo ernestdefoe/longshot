@@ -32,11 +32,23 @@ export default class ScoreModal extends FormModal<Attrs> {
         <p className="helpText">{t('admin.score.help')}</p>
         <div className="Form-group">
           <label>{e.away?.name}</label>
-          <input className="FormControl" type="number" min="0" value={this.away} oninput={(ev: InputEvent) => (this.away = (ev.target as HTMLInputElement).value)} />
+          <input
+            className="FormControl"
+            type="number"
+            min="0"
+            value={this.away}
+            oninput={(ev: InputEvent) => (this.away = (ev.target as HTMLInputElement).value)}
+          />
         </div>
         <div className="Form-group">
           <label>{e.home?.name}</label>
-          <input className="FormControl" type="number" min="0" value={this.home} oninput={(ev: InputEvent) => (this.home = (ev.target as HTMLInputElement).value)} />
+          <input
+            className="FormControl"
+            type="number"
+            min="0"
+            value={this.home}
+            oninput={(ev: InputEvent) => (this.home = (ev.target as HTMLInputElement).value)}
+          />
         </div>
         <Button className="Button Button--primary" type="submit" loading={this.loading} disabled={this.home === '' || this.away === ''}>
           {t('admin.score.submit')}

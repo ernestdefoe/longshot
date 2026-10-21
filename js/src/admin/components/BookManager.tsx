@@ -111,9 +111,25 @@ export default class BookManager extends Component {
         <h3 className="Longshot-adminHeading">{t('admin.grant.title')}</h3>
         <p className="helpText">{t('admin.grant.help')}</p>
         <div className="Longshot-manager-bar">
-          <input className="FormControl" placeholder={extractText(t('admin.grant.user'))} value={this.grantUser} oninput={(e: InputEvent) => (this.grantUser = (e.target as HTMLInputElement).value)} />
-          <input className="FormControl" type="number" placeholder={extractText(t('admin.grant.amount'))} value={this.grantAmount} oninput={(e: InputEvent) => (this.grantAmount = (e.target as HTMLInputElement).value)} />
-          <Button className="Button" loading={this.granting} disabled={!this.grantUser || !parseInt(this.grantAmount, 10)} onclick={() => this.grant()}>
+          <input
+            className="FormControl"
+            placeholder={extractText(t('admin.grant.user'))}
+            value={this.grantUser}
+            oninput={(e: InputEvent) => (this.grantUser = (e.target as HTMLInputElement).value)}
+          />
+          <input
+            className="FormControl"
+            type="number"
+            placeholder={extractText(t('admin.grant.amount'))}
+            value={this.grantAmount}
+            oninput={(e: InputEvent) => (this.grantAmount = (e.target as HTMLInputElement).value)}
+          />
+          <Button
+            className="Button"
+            loading={this.granting}
+            disabled={!this.grantUser || !parseInt(this.grantAmount, 10)}
+            onclick={() => this.grant()}
+          >
             {t('admin.grant.submit')}
           </Button>
           {this.granted ? <span className="helpText">{this.granted}</span> : null}
@@ -141,7 +157,14 @@ export default class BookManager extends Component {
         <td>{new Date(event.startsAt).toLocaleString()}</td>
         <td>{t('admin.book.counts', { bets: event.bets ?? 0, offers: event.offers ?? 0 })}</td>
         <td className="Longshot-adminActions">
-          {open ? <Button className="Button Button--icon" icon="fas fa-pen" aria-label={extractText(t('admin.book.edit'))} onclick={() => app.modal.show(EventModal, { event, onsave: () => this.load() })} /> : null}
+          {open ? (
+            <Button
+              className="Button Button--icon"
+              icon="fas fa-pen"
+              aria-label={extractText(t('admin.book.edit'))}
+              onclick={() => app.modal.show(EventModal, { event, onsave: () => this.load() })}
+            />
+          ) : null}
           {scoreable ? (
             <Button className="Button" onclick={() => app.modal.show(ScoreModal, { event, onsave: () => this.load() })}>
               {t('admin.book.score')}
@@ -158,7 +181,12 @@ export default class BookManager extends Component {
             </Button>
           ) : null}
           {!event.bets && !event.offers ? (
-            <Button className="Button Button--icon Button--danger" icon="fas fa-trash" aria-label={extractText(t('admin.book.delete'))} onclick={() => this.delete(event)} />
+            <Button
+              className="Button Button--icon Button--danger"
+              icon="fas fa-trash"
+              aria-label={extractText(t('admin.book.delete'))}
+              onclick={() => this.delete(event)}
+            />
           ) : null}
         </td>
       </tr>
@@ -168,7 +196,10 @@ export default class BookManager extends Component {
   sync() {
     this.syncing = true;
     adminSend('POST', '/sync')
-      .then((r: any) => (this.synced = extractText(t('admin.book.synced', { imported: r.data.imported, calls: r.data.odds.calls, prices: r.data.odds.updated }))))
+      .then(
+        (r: any) =>
+          (this.synced = extractText(t('admin.book.synced', { imported: r.data.imported, calls: r.data.odds.calls, prices: r.data.odds.updated })))
+      )
       .finally(() => {
         this.syncing = false;
         this.load();

@@ -45,7 +45,9 @@ export default class OddsButton extends Component<OddsButtonAttrs> {
       >
         {named ? <span className="Longshot-odds-name">{label}</span> : null}
         {!named && line !== null ? (
-          <span className="Longshot-odds-line">{market.type === 'total' ? `${selection.key === 'over' ? 'O' : 'U'} ${Number(line)}` : formatLine(line)}</span>
+          <span className="Longshot-odds-line">
+            {market.type === 'total' ? `${selection.key === 'over' ? 'O' : 'U'} ${Number(line)}` : formatLine(line)}
+          </span>
         ) : null}
         <span className="Longshot-odds-price">{formatOdds(selection.odds, prefs.odds)}</span>
       </button>

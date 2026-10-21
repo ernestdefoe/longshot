@@ -28,9 +28,9 @@ use Flarum\User\Event\Deleting;
 return [
     (new Extend\Frontend('forum'))
         ->js(__DIR__.'/js/dist/forum.js')
-        // Every page of the book is its own chunk.
+        // The book's pages, and their styles, are one lazy chunk: nothing of
+        // Longshot is in forum.css.
         ->jsDirectory(__DIR__.'/js/dist/forum')
-        ->css(__DIR__.'/less/forum.less')
         ->route('/sportsbook', 'longshot.board')
         ->route('/sportsbook/results', 'longshot.results')
         ->route('/sportsbook/bets', 'longshot.bets')
@@ -73,8 +73,12 @@ return [
     (new Extend\Console())
         ->command(Console\SettleCommand::class)
         ->command(Console\SyncCommand::class)
-        ->schedule(Console\SettleCommand::class, fn ($event) => $event->everyMinute()->withoutOverlapping())
-        ->schedule(Console\SyncCommand::class, fn ($event) => $event->everyThirtyMinutes()->withoutOverlapping()),
+        ->schedule(Console\SettleCommand::class, function ($event) {
+            $event->everyMinute()->withoutOverlapping();
+        })
+        ->schedule(Console\SyncCommand::class, function ($event) {
+            $event->everyThirtyMinutes()->withoutOverlapping();
+        }),
 
     (new Extend\Notification())
         ->type(Notification\BetSettledBlueprint::class, ['alert'])

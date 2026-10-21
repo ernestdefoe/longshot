@@ -21,7 +21,9 @@ export default class BetCard extends Component<BetCardAttrs> {
     return (
       <article className={classList('Longshot-bet', 'is-' + bet.status)}>
         <header className="Longshot-bet-head">
-          <span className="Longshot-bet-kind">{bet.kind === 'parlay' ? t('forum.bet.parlay', { count: bet.legs.length }) : t('forum.bet.single')}</span>
+          <span className="Longshot-bet-kind">
+            {bet.kind === 'parlay' ? t('forum.bet.parlay', { count: bet.legs.length }) : t('forum.bet.single')}
+          </span>
           <span className={classList('Longshot-pill', 'is-' + bet.status)}>{t('forum.bet.status.' + bet.status)}</span>
         </header>
 

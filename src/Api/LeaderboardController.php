@@ -86,13 +86,13 @@ class LeaderboardController implements RequestHandlerInterface
         ];
     }
 
-    /** @return \Illuminate\Support\Collection<int, object> */
+    /** @return \Illuminate\Support\Collection<int, \stdClass> */
     private function profits(User $actor, string $period)
     {
         return $this->profitQuery($actor, $period)->orderByDesc('profit')->orderBy('user_id')->limit(self::SIZE)->get();
     }
 
-    /** @return \Illuminate\Support\Collection<int, object> */
+    /** @return \Illuminate\Support\Collection<int, \stdClass> */
     private function balances(User $actor)
     {
         return $this->balanceQuery($actor)->orderByDesc('balance')->orderBy('user_id')->limit(self::SIZE)->get();
