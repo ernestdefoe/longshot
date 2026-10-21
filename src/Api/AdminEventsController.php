@@ -89,7 +89,13 @@ class AdminEventsController implements RequestHandlerInterface
                 throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
             }
 
-            $event->delete();
+            // Explicitly, not by cascade: SQLite only cascades with foreign keys on.
+            $this->db->transaction(function () use ($event) {
+                $markets = Market::query()->where('event_id', $event->id)->pluck('id')->all();
+                $this->db->table('longshot_selections')->whereIn('market_id', $markets)->delete();
+                Market::query()->whereIn('id', $markets)->delete();
+                $event->delete();
+            });
 
             return new EmptyResponse(204);
         }

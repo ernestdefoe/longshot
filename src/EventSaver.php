@@ -149,10 +149,20 @@ class EventSaver
                     $this->fail('markets', 'market_used');
                 }
 
+                Selection::query()->where('market_id', $market->id)->delete();
                 $market->delete();
             }
         }
+
+        // Every new option of every market, in one insert.
+        if ($this->inserts) {
+            Selection::query()->insert($this->inserts);
+            $this->inserts = [];
+        }
     }
+
+    /** @var list<array<string, mixed>> new selections, written together at the end */
+    private array $inserts = [];
 
     /** @param list<array<string, mixed>> $input */
     private function selections(Market $market, array $input, bool $used): void
@@ -195,16 +205,20 @@ class EventSaver
             }
 
             $keys[$key] = true;
-            $selection ??= new Selection();
-            $selection->market_id = $market->id;
-            $selection->key = $key;
-            $selection->label = $market->type === Market::CUSTOM ? $this->text($data['label'] ?? null, 150) : null;
-            $selection->odds = $odds;
-            $selection->sort = $sort;
+            $label = $market->type === Market::CUSTOM ? $this->text($data['label'] ?? null, 150) : null;
 
-            if ($market->type === Market::CUSTOM && $selection->label === null) {
+            if ($market->type === Market::CUSTOM && $label === null) {
                 $this->fail('markets', 'custom_label');
             }
+
+            if (! $selection) {
+                $this->inserts[] = ['market_id' => $market->id, 'key' => $key, 'label' => $label, 'odds' => $odds, 'sort' => $sort];
+                continue;
+            }
+
+            $selection->label = $label;
+            $selection->odds = $odds;
+            $selection->sort = $sort;
 
             // Only what changed is written.
             $selection->isDirty() && $selection->save();

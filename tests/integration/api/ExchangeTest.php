@@ -211,6 +211,11 @@ class ExchangeTest extends TestCase
         $this->assertSame(204, $this->send($this->request('DELETE', '/api/users/3', ['authenticatedAs' => 1]))->getStatusCode());
 
         $this->assertSame(1000, $this->stored(2));
-        $this->assertSame(OfferMatch::VOID, OfferMatch::query()->value('result') ?? OfferMatch::VOID);
+        // Carol's rows are gone, on every database, cascade or not.
+        $this->assertSame(0, Offer::query()->count());
+        $this->assertSame(0, OfferMatch::query()->count());
+        $this->assertSame(0, $this->database()->table('longshot_ledger')->where('user_id', 3)->count());
+        // And the sweep has nothing left to trip over.
+        $this->settlement()->sweep();
     }
 }

@@ -555,6 +555,21 @@ class Settlement
         foreach ($matches as $id) {
             $this->payMatch((int) $id, fn () => Grader::VOID);
         }
+
+        // Then their own rows go, here rather than by the foreign keys'
+        // cascade, which SQLite only performs with foreign keys switched on.
+        $this->db->transaction(function () use ($user) {
+            $bets = Bet::query()->where('user_id', $user->id)->pluck('id')->all();
+            $offers = Offer::query()->where('user_id', $user->id)->pluck('id')->all();
+
+            Leg::query()->whereIn('bet_id', $bets)->delete();
+            Bet::query()->whereIn('id', $bets)->delete();
+            OfferMatch::query()->whereIn('offer_id', $offers)->orWhere('user_id', $user->id)->delete();
+            Offer::query()->whereIn('id', $offers)->delete();
+            Offer::query()->where('target_user_id', $user->id)->update(['target_user_id' => null, 'status' => Offer::SETTLED]);
+            $this->db->table('longshot_ledger')->where('user_id', $user->id)->delete();
+            $this->db->table('longshot_wallets')->where('user_id', $user->id)->delete();
+        });
     }
 
     /** @var array<int, User> loaded once per run, however many payouts they get */
