@@ -139,7 +139,7 @@ export default class ProvidersPanel extends Component {
             </div>
           ) : null}
           <div className="Form-group">
-            <label>{t('admin.feed.budget_' + p.period)}</label>
+            <label>{t(p.key === 'oddsapi' ? 'admin.feed.budget_credits' : 'admin.feed.budget_' + p.period)}</label>
             <input
               className="FormControl"
               type="number"

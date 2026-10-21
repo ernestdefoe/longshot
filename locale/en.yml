@@ -318,7 +318,8 @@ ernestdefoe-longshot:
       key_placeholder: Paste the key
       clear_key: Remove key
       budget_day: Calls per day
-      budget_month: Calls (credits) per month
+      budget_month: Calls per month
+      budget_credits: Credits per month
       used: "{used} of {budget} used {period}."
       per_day: today
       per_month: this month
@@ -407,6 +408,7 @@ ernestdefoe-longshot:
       amount: Give a whole number of points to add, or a negative number to take away, that the balance can cover.
       slow_down: A sync is already running. Try again in a minute.
       no_provider: There is no such data provider.
+      test_slow_down: That provider was tested a moment ago. Try again in a minute.
       team_name: A team needs a name of up to 100 characters.
       team_color: Colours are written like #1a2b3c.
       team_logo: "A logo must be an https address on ESPN's, TheSportsDB's or API-Football's image servers."

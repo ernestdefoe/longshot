@@ -109,7 +109,7 @@ class AdminFeedController implements RequestHandlerInterface
 
         // At most one test a minute per provider: a test is a real call.
         if (! $this->cache->add('longshot.test.'.$key, 1, 60)) {
-            throw new ValidationException(['provider' => $this->translator->trans('ernestdefoe-longshot.api.admin.slow_down')]);
+            throw new ValidationException(['provider' => $this->translator->trans('ernestdefoe-longshot.api.admin.test_slow_down')]);
         }
 
         [$url, $cost] = self::TESTS[$key];
