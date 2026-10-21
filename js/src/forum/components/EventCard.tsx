@@ -10,6 +10,8 @@ import OddsButton from './OddsButton';
 
 export interface EventCardAttrs extends ComponentAttrs {
   event: BookEvent;
+  /** On the event's own page: no link to itself. */
+  standalone?: boolean;
 }
 
 const ROWS: Array<'away' | 'home'> = ['away', 'home'];
@@ -33,10 +35,12 @@ export default class EventCard extends Component<EventCardAttrs> {
         <header className="Longshot-event-head">
           <span className="Longshot-event-league">{event.league}</span>
           {this.status(event)}
-          <Link className="Longshot-event-more" href={app.route('longshot.event', { id: event.id })}>
-            {extra ? t('forum.board.more_markets', { count: extra }) : t('forum.board.details')}
-            {event.offers ? <span className="Longshot-badge">{t('forum.board.offers', { count: event.offers })}</span> : null}
-          </Link>
+          {this.attrs.standalone ? null : (
+            <Link className="Longshot-event-more" href={app.route('longshot.event', { id: event.id })}>
+              {extra ? t('forum.board.more_markets', { count: extra }) : t('forum.board.details')}
+              {event.offers ? <span className="Longshot-badge">{t('forum.board.offers', { count: event.offers })}</span> : null}
+            </Link>
+          )}
         </header>
 
         {event.home && event.away ? (

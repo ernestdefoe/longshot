@@ -1,4 +1,4 @@
-name: Brainstorm PHP
+name: Longshot PHP
 
 on: [workflow_dispatch, push, pull_request]
 

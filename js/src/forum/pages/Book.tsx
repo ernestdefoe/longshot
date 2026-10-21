@@ -205,7 +205,7 @@ export class EventPage extends BookPage {
         <LinkButton className="Button Button--link" icon="fas fa-arrow-left" href={app.route('longshot.board')}>
           {t('forum.event.back')}
         </LinkButton>
-        <EventCard event={{ ...event, markets: event.markets }} />
+        <EventCard event={event} standalone />
 
         {(event.markets ?? []).map((market) => (
           <section className="Longshot-market">
