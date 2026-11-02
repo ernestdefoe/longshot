@@ -146,6 +146,25 @@ class AdminEventsTest extends TestCase
     }
 
     #[Test]
+    public function each_admin_route_reaches_its_own_action(): void
+    {
+        $data = $this->json($this->save($this->matchup($this->full())))['data'];
+        $this->assertSame(200, $this->send($this->request('GET', '/api/longshot/admin/events', ['authenticatedAs' => 1]))->getStatusCode());
+
+        // A market voided on its own: the event stays open.
+        $market = $data['markets'][0]['id'];
+        $this->assertSame(403, $this->send($this->request('POST', '/api/longshot/admin/markets/'.$market.'/void', ['authenticatedAs' => 2]))->getStatusCode());
+        $this->assertSame(200, $this->send($this->request('POST', '/api/longshot/admin/markets/'.$market.'/void', ['authenticatedAs' => 1]))->getStatusCode());
+        $this->assertSame(Market::VOID, Market::query()->find($market)->status);
+        $this->assertSame(Event::OPEN, Event::query()->find($data['id'])->status);
+
+        // Hidden: off the board, not deleted.
+        $this->assertSame(200, $this->send($this->request('POST', '/api/longshot/admin/events/'.$data['id'].'/hide', ['authenticatedAs' => 1]))->getStatusCode());
+        $this->assertSame(Event::HIDDEN, Event::query()->find($data['id'])->status);
+        $this->assertSame(422, $this->send($this->request('POST', '/api/longshot/admin/events/'.$data['id'].'/hide', ['authenticatedAs' => 1]))->getStatusCode());
+    }
+
+    #[Test]
     public function a_titled_event_takes_custom_markets_and_new_options_get_fresh_keys(): void
     {
         $payload = ['title' => 'Super Bowl MVP', 'league' => 'NFL', 'startsAt' => Carbon::now()->addWeek()->toIso8601String(), 'markets' => [

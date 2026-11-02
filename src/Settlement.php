@@ -476,83 +476,141 @@ class Settlement
     {
         $done = ['scored' => 0, 'closed' => 0, 'voided' => 0, 'recovered' => 0, 'failed' => 0];
 
-        // 🚨 Each item on its own: one bad row (a score Picks got wrong, a
-        // member removed behind our back) is logged and skipped, never left
-        // to stop every payout behind it, every minute, for good.
-        $safely = function (string $what, callable $work) use (&$done): void {
-            try {
-                $work();
-            } catch (\Throwable $e) {
-                $done['failed']++;
-                $this->log->error('[longshot] '.$what.' failed: '.$e->getMessage());
-            }
-        };
+        $this->scoreFromPicks($done);
+        $this->closeStartedOffers($done);
+        $this->voidStaleEvents($done);
+        $this->recoverEvents($done);
+        $this->recoverPayouts($done);
 
+        return $done;
+    }
+
+    /**
+     * 🚨 Each sweep item runs on its own: one bad row (a score Picks got
+     * wrong, a member removed behind our back) is logged and skipped, never
+     * left to stop every payout behind it, every minute, for good. What the
+     * work returns is added to $done[$counter].
+     *
+     * @param array<string, int> $done
+     */
+    private function safely(array &$done, ?string $counter, string $what, callable $work): void
+    {
+        try {
+            $count = $work();
+
+            if ($counter !== null) {
+                $done[$counter] += (int) $count;
+            }
+        } catch (\Throwable $e) {
+            $done['failed']++;
+            $this->log->error('[longshot] '.$what.' failed: '.$e->getMessage());
+        }
+    }
+
+    /** @param array<string, int> $done */
+    private function scoreFromPicks(array &$done): void
+    {
         $finals = [];
-        $safely('reading results from Picks', function () use (&$finals) {
+        $this->safely($done, null, 'reading results from Picks', function () use (&$finals) {
             $finals = $this->picks->refresh();
         });
 
         foreach ($finals as $final) {
-            $safely('scoring event '.$final['event'], function () use ($final, &$done) {
-                if ($event = Event::query()->find($final['event'])) {
-                    $this->score($event, $final['home'], $final['away']);
-                    $done['scored']++;
-                }
+            $this->safely($done, 'scored', 'scoring event '.$final['event'], function () use ($final) {
+                $event = Event::query()->find($final['event']);
+                $event && $this->score($event, $final['home'], $final['away']);
+
+                return (bool) $event;
             });
         }
+    }
 
-        // Offers on events that have started: no more matching, unmatched back.
+    /**
+     * Offers on events that have started: no more matching, unmatched back.
+     *
+     * @param array<string, int> $done
+     */
+    private function closeStartedOffers(array &$done): void
+    {
         $started = Offer::query()->where('longshot_offers.status', Offer::OPEN)
             ->join('longshot_events', 'longshot_events.id', '=', 'longshot_offers.event_id')
             ->where(fn ($q) => $q->where('longshot_events.starts_at', '<=', Carbon::now())->orWhere('longshot_events.status', '!=', Event::OPEN))
             ->orderBy('longshot_offers.id')->limit(500)->pluck('longshot_offers.id');
 
         foreach ($started as $id) {
-            $safely('closing offer '.$id, function () use ($id, &$done) {
-                $done['closed'] += (int) (bool) $this->closeOffer((int) $id);
+            $this->safely($done, 'closed', 'closing offer '.$id, fn () => (bool) $this->closeOffer((int) $id));
+        }
+    }
+
+    /**
+     * Games no feed ever finished (postponed, cancelled, a feed gone quiet):
+     * voided after the configured wait. Staff's own events wait for staff.
+     *
+     * @param array<string, int> $done
+     */
+    private function voidStaleEvents(array &$done): void
+    {
+        if (($days = $this->config->autoVoidDays()) <= 0) {
+            return;
+        }
+
+        $stale = Event::query()->where('status', Event::OPEN)->where('source', '!=', 'manual')->where('locked', false)
+            ->where('starts_at', '<', Carbon::now()->subDays($days))->orderBy('id')->limit(100)->get();
+
+        foreach ($stale as $event) {
+            $this->safely($done, 'voided', 'voiding event '.$event->id, function () use ($event) {
+                $this->voidEvent($event);
+
+                return 1;
             });
         }
+    }
 
-        // Games no feed ever finished (postponed, cancelled, a feed gone
-        // quiet): voided after the configured wait. Staff's own events wait for staff.
-        if (($days = $this->config->autoVoidDays()) > 0) {
-            foreach (Event::query()->where('status', Event::OPEN)->where('source', '!=', 'manual')->where('locked', false)
-                ->where('starts_at', '<', Carbon::now()->subDays($days))->orderBy('id')->limit(100)->get() as $event) {
-                $safely('voiding event '.$event->id, function () use ($event, &$done) {
-                    $this->voidEvent($event);
-                    $done['voided']++;
-                });
-            }
-        }
-
-        // Scored events whose markets a crashed run left ungraded, and void
-        // events whose markets were not voided with them.
+    /**
+     * Scored events whose markets a crashed run left ungraded, and void
+     * events whose markets were not voided with them.
+     *
+     * @param array<string, int> $done
+     */
+    private function recoverEvents(array &$done): void
+    {
         $unfinished = fn (string $status) => Market::query()
             ->whereNotIn('longshot_markets.status', [Market::SETTLED, Market::VOID])
             ->join('longshot_events', 'longshot_events.id', '=', 'longshot_markets.event_id')
             ->where('longshot_events.status', $status);
 
-        foreach ($unfinished(Event::SETTLED)->whereIn('longshot_markets.type', [Market::MONEYLINE, Market::SPREAD, Market::TOTAL])
-            ->distinct()->orderBy('longshot_markets.event_id')->limit(100)->pluck('longshot_markets.event_id') as $eventId) {
-            $safely('grading event '.$eventId, function () use ($eventId, &$done) {
+        $scored = $unfinished(Event::SETTLED)->whereIn('longshot_markets.type', [Market::MONEYLINE, Market::SPREAD, Market::TOTAL])
+            ->distinct()->orderBy('longshot_markets.event_id')->limit(100)->pluck('longshot_markets.event_id');
+
+        foreach ($scored as $eventId) {
+            $this->safely($done, 'recovered', 'grading event '.$eventId, function () use ($eventId) {
                 $this->payMarkets($this->gradeScored((int) $eventId));
-                $done['recovered']++;
+
+                return 1;
             });
         }
 
         $voids = $unfinished(Event::VOID)->orderBy('longshot_markets.id')->limit(200)->pluck('longshot_markets.id')->map(fn ($id) => (int) $id)->all();
+
         if ($voids) {
-            $safely('voiding markets', function () use ($voids, &$done) {
+            $this->safely($done, 'recovered', 'voiding markets', function () use ($voids) {
                 $this->payMarkets($this->voidMarkets($voids));
-                $done['recovered'] += count($voids);
+
+                return count($voids);
             });
         }
+    }
 
-        // Finished markets with ungraded legs or unpaid matches: a queued
-        // payout that never ran, or a run that died halfway. (Parlays still
-        // waiting on another game have no ungraded leg here, so they do not
-        // crowd the list.)
+    /**
+     * Finished markets with ungraded legs or unpaid matches (a queued payout
+     * that never ran, or a run that died halfway), then open bets whose every
+     * leg is graded. Parlays still waiting on another game have no ungraded
+     * leg here, so they do not crowd the list.
+     *
+     * @param array<string, int> $done
+     */
+    private function recoverPayouts(array &$done): void
+    {
         $markets = Leg::query()
             ->join('longshot_markets', 'longshot_markets.id', '=', 'longshot_bet_legs.market_id')
             ->whereIn('longshot_markets.status', [Market::SETTLED, Market::VOID])
@@ -566,25 +624,26 @@ class Settlement
             ->map(fn ($id) => (int) $id)->unique()->values()->all();
 
         foreach ($markets as $marketId) {
-            $safely('paying market '.$marketId, function () use ($marketId, &$done) {
+            $this->safely($done, 'recovered', 'paying market '.$marketId, function () use ($marketId) {
                 $this->payMarkets([$marketId]);
-                $done['recovered']++;
+
+                return 1;
             });
         }
 
-        // Open bets whose every leg is graded: paid.
-        foreach (Bet::query()->where('status', Bet::OPEN)
+        $bets = Bet::query()->where('status', Bet::OPEN)
             ->whereNotExists(fn (Builder $q) => $q->from('longshot_bet_legs')
                 ->whereColumn('longshot_bet_legs.bet_id', 'longshot_bets.id')
                 ->whereNull('longshot_bet_legs.result'))
-            ->orderBy('id')->limit(500)->pluck('id') as $id) {
-            $safely('paying bet '.$id, function () use ($id, &$done) {
+            ->orderBy('id')->limit(500)->pluck('id');
+
+        foreach ($bets as $id) {
+            $this->safely($done, 'recovered', 'paying bet '.$id, function () use ($id) {
                 $this->payBet((int) $id);
-                $done['recovered']++;
+
+                return 1;
             });
         }
-
-        return $done;
     }
 
     /**

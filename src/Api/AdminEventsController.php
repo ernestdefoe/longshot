@@ -50,94 +50,107 @@ class AdminEventsController implements RequestHandlerInterface
         $actor->assertCan('longshot.manage');
 
         $id = $this->routeId($request);
-        $action = (string) ($request->getAttribute('routeName') ?? '');
-        $action = substr($action, strrpos($action, '.') + 1);
-        $method = $request->getMethod();
         $body = $this->body($request);
 
-        if (str_starts_with((string) $request->getAttribute('routeName'), 'longshot.admin.markets')) {
-            $market = Market::query()->findOrFail($id);
+        // One route, one method: the route names are registered in extend.php.
+        return match ((string) $request->getAttribute('routeName')) {
+            'longshot.admin.events.create' => $this->show($this->saver->save($actor, null, $body)->id, 201),
+            'longshot.admin.events.update' => $this->show($this->saver->save($actor, Event::query()->findOrFail($id), $body)->id),
+            'longshot.admin.events.delete' => $this->delete(Event::query()->findOrFail($id)),
+            'longshot.admin.events.score' => $this->score(Event::query()->findOrFail($id), $body),
+            'longshot.admin.events.void' => $this->voidEvent(Event::query()->findOrFail($id)),
+            'longshot.admin.events.hide' => $this->hide(Event::query()->findOrFail($id)),
+            'longshot.admin.markets.resolve' => $this->resolveMarket(Market::query()->findOrFail($id), $body),
+            'longshot.admin.markets.void' => $this->voidMarket(Market::query()->findOrFail($id)),
+            default => $this->index($request),
+        };
+    }
 
-            try {
-                if ($action === 'void') {
-                    $this->settlement->voidMarket($market);
-                } else {
-                    $results = [];
-                    foreach ((array) ($body['results'] ?? []) as $selection => $result) {
-                        $results[(int) $selection] = (string) $result;
-                    }
-                    $this->settlement->resolve($market, $results);
-                }
-            } catch (\InvalidArgumentException $e) {
-                throw new ValidationException(['results' => $this->translator->trans('ernestdefoe-longshot.api.admin.results')]);
-            }
-
-            return $this->show($market->event_id);
+    private function delete(Event $event): ResponseInterface
+    {
+        if ($this->saver->used($event)) {
+            throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
         }
 
-        if ($method === 'GET') {
-            return $this->index($request);
+        // Explicitly, not by cascade: SQLite only cascades with foreign keys on.
+        $this->db->transaction(function () use ($event) {
+            $markets = Market::query()->where('event_id', $event->id)->pluck('id')->all();
+            $this->db->table('longshot_selections')->whereIn('market_id', $markets)->delete();
+            Market::query()->whereIn('id', $markets)->delete();
+            $event->delete();
+        });
+
+        return new EmptyResponse(204);
+    }
+
+    /** @param array<string, mixed> $body */
+    private function score(Event $event, array $body): ResponseInterface
+    {
+        $home = $this->int($body['home'] ?? null);
+        $away = $this->int($body['away'] ?? null);
+
+        if ($home === null || $away === null || $home < 0 || $away < 0 || $home > 9999 || $away > 9999 || ! $event->isMatchup()) {
+            throw new ValidationException(['score' => $this->translator->trans('ernestdefoe-longshot.api.admin.score')]);
         }
 
-        if ($method === 'POST' && ! $id) {
-            return $this->show($this->saver->save($actor, null, $body)->id, 201);
+        if ($event->status !== Event::OPEN) {
+            throw new ValidationException(['score' => $this->translator->trans('ernestdefoe-longshot.api.admin.finished')]);
         }
 
-        $event = Event::query()->findOrFail($id);
+        $this->settlement->score($event, $home, $away);
 
-        if ($method === 'DELETE') {
-            if ($this->saver->used($event)) {
-                throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
-            }
+        return $this->show($event->id);
+    }
 
-            // Explicitly, not by cascade: SQLite only cascades with foreign keys on.
-            $this->db->transaction(function () use ($event) {
-                $markets = Market::query()->where('event_id', $event->id)->pluck('id')->all();
-                $this->db->table('longshot_selections')->whereIn('market_id', $markets)->delete();
-                Market::query()->whereIn('id', $markets)->delete();
-                $event->delete();
-            });
+    private function voidEvent(Event $event): ResponseInterface
+    {
+        $this->settlement->voidEvent($event);
 
-            return new EmptyResponse(204);
+        return $this->show($event->id);
+    }
+
+    /**
+     * Off the board, and never brought back by a sync. Only while nothing
+     * was placed on it: a game with bets is voided instead.
+     */
+    private function hide(Event $event): ResponseInterface
+    {
+        if ($this->saver->used($event) || $event->status !== Event::OPEN) {
+            throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
         }
 
-        if ($action === 'score') {
-            $home = $this->int($body['home'] ?? null);
-            $away = $this->int($body['away'] ?? null);
+        $event->status = Event::HIDDEN;
+        $event->save();
 
-            if ($home === null || $away === null || $home < 0 || $away < 0 || $home > 9999 || $away > 9999 || ! $event->isMatchup()) {
-                throw new ValidationException(['score' => $this->translator->trans('ernestdefoe-longshot.api.admin.score')]);
-            }
+        return $this->show($event->id);
+    }
 
-            if ($event->status !== Event::OPEN) {
-                throw new ValidationException(['score' => $this->translator->trans('ernestdefoe-longshot.api.admin.finished')]);
-            }
-
-            $this->settlement->score($event, $home, $away);
-
-            return $this->show($event->id);
+    /** @param array<string, mixed> $body */
+    private function resolveMarket(Market $market, array $body): ResponseInterface
+    {
+        $results = [];
+        foreach ((array) ($body['results'] ?? []) as $selection => $result) {
+            $results[(int) $selection] = (string) $result;
         }
 
-        if ($action === 'void') {
-            $this->settlement->voidEvent($event);
-
-            return $this->show($event->id);
+        try {
+            $this->settlement->resolve($market, $results);
+        } catch (\InvalidArgumentException $e) {
+            throw new ValidationException(['results' => $this->translator->trans('ernestdefoe-longshot.api.admin.results')]);
         }
 
-        // Off the board, and never brought back by a sync. Only while nothing
-        // was placed on it: a game with bets is voided instead.
-        if ($action === 'hide') {
-            if ($this->saver->used($event) || $event->status !== Event::OPEN) {
-                throw new ValidationException(['event' => $this->translator->trans('ernestdefoe-longshot.api.admin.event_used')]);
-            }
+        return $this->show($market->event_id);
+    }
 
-            $event->status = Event::HIDDEN;
-            $event->save();
-
-            return $this->show($event->id);
+    private function voidMarket(Market $market): ResponseInterface
+    {
+        try {
+            $this->settlement->voidMarket($market);
+        } catch (\InvalidArgumentException $e) {
+            throw new ValidationException(['results' => $this->translator->trans('ernestdefoe-longshot.api.admin.results')]);
         }
 
-        return $this->show($this->saver->save($actor, $event, $body)->id);
+        return $this->show($market->event_id);
     }
 
     private function index(ServerRequestInterface $request): ResponseInterface
